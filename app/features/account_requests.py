@@ -70,7 +70,7 @@ def create_request():
 @account_requests_bp.route('/', methods=['GET'])
 @login_required
 def list_requests():
-    if not is_admin(current_user):
+    if not is_admin():
         flash('Access denied. Administrator privileges required.', 'danger')
         return redirect(url_for('dashboard.index'))
     
@@ -90,7 +90,7 @@ def list_requests():
 @account_requests_bp.route('/<int:request_id>', methods=['GET'])
 @login_required
 def view_request(request_id):
-    if not is_admin(current_user):
+    if not is_admin():
         flash('Access denied. Administrator privileges required.', 'danger')
         return redirect(url_for('dashboard.index'))
     
@@ -106,7 +106,7 @@ def view_request(request_id):
 @account_requests_bp.route('/<int:request_id>/start-review', methods=['POST'])
 @login_required
 def start_review(request_id):
-    if not is_admin(current_user):
+    if not is_admin():
         flash('Access denied. Administrator privileges required.', 'danger')
         return redirect(url_for('dashboard.index'))
     
@@ -144,7 +144,7 @@ def start_review(request_id):
 @account_requests_bp.route('/<int:request_id>/approve', methods=['POST'])
 @login_required
 def approve_request(request_id):
-    if not is_admin(current_user):
+    if not is_admin():
         flash('Access denied. Administrator privileges required.', 'danger')
         return redirect(url_for('dashboard.index'))
     
@@ -183,7 +183,7 @@ def approve_request(request_id):
 @account_requests_bp.route('/<int:request_id>/deny', methods=['POST'])
 @login_required
 def deny_request(request_id):
-    if not is_admin(current_user):
+    if not is_admin():
         flash('Access denied. Administrator privileges required.', 'danger')
         return redirect(url_for('dashboard.index'))
     
@@ -226,7 +226,7 @@ def deny_request(request_id):
 @account_requests_bp.route('/<int:request_id>/provision', methods=['POST'])
 @login_required
 def provision_account(request_id):
-    if not is_admin(current_user):
+    if not is_admin():
         flash('Access denied. Administrator privileges required.', 'danger')
         return redirect(url_for('dashboard.index'))
     
