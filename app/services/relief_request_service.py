@@ -15,14 +15,15 @@ from app.db.models import (
 from app.core.exceptions import OptimisticLockError
 
 
-# Status codes mapping (as per spec)
-STATUS_DRAFT = 10
-STATUS_SUBMITTED = 20
-STATUS_UNDER_REVIEW = 30
-STATUS_APPROVED = 40
-STATUS_PACKAGE_PREPARED = 60
-STATUS_DISPATCHED = 70
-STATUS_DELIVERED = 80
+# Status codes mapping (from reliefrqst_status lookup table)
+STATUS_DRAFT = 0              # DRAFT - Request being prepared
+STATUS_AWAITING_APPROVAL = 1  # Awaiting approval - Internal approval pending
+STATUS_CANCELLED = 2          # CANCELLED - Request cancelled
+STATUS_SUBMITTED = 3          # SUBMITTED - Submitted to ODPEM
+STATUS_DENIED = 4             # DENIED - Request denied by ODPEM
+STATUS_PART_FILLED = 5        # PART FILLED - Partially fulfilled
+STATUS_CLOSED = 6             # CLOSED - Request closed
+STATUS_FILLED = 7             # FILLED - Request completely fulfilled
 
 URGENCY_HIGH = 'H'
 URGENCY_MEDIUM = 'M'
@@ -36,13 +37,13 @@ def get_workflow_steps(status_code: int) -> Dict:
     """
     if status_code == STATUS_DRAFT:
         return {'current_step': 1, 'step_name': 'Prepare Request', 'status': 'active'}
-    elif status_code == STATUS_SUBMITTED:
+    elif status_code in [STATUS_AWAITING_APPROVAL, STATUS_SUBMITTED]:
         return {'current_step': 2, 'step_name': 'Submitted to ODPEM', 'status': 'active'}
-    elif status_code in [STATUS_UNDER_REVIEW, STATUS_APPROVED, STATUS_PACKAGE_PREPARED]:
+    elif status_code == STATUS_PART_FILLED:
         return {'current_step': 3, 'step_name': 'ODPEM Processing', 'status': 'active'}
-    elif status_code == STATUS_DISPATCHED:
+    elif status_code == STATUS_CLOSED:
         return {'current_step': 4, 'step_name': 'Goods Dispatched', 'status': 'active'}
-    elif status_code == STATUS_DELIVERED:
+    elif status_code == STATUS_FILLED:
         return {'current_step': 5, 'step_name': 'Goods Received', 'status': 'completed'}
     else:
         return {'current_step': 1, 'step_name': 'Unknown', 'status': 'active'}
@@ -282,7 +283,7 @@ def check_and_autoclose_request(reliefrqst_id: int) -> Tuple[bool, str]:
         return False, "Request not found"
     
     # Skip if already closed
-    if relief_request.status_code == STATUS_DELIVERED:
+    if relief_request.status_code == STATUS_FILLED:
         return False, "Request already closed"
     
     # Check for pending packages (status P or D)
@@ -316,7 +317,7 @@ def check_and_autoclose_request(reliefrqst_id: int) -> Tuple[bool, str]:
         return False, "Not all items have been fully received"
     
     # All conditions met - auto-close the request
-    relief_request.status_code = STATUS_DELIVERED
+    relief_request.status_code = STATUS_FILLED
     relief_request.version_nbr += 1
     
     db.session.flush()

@@ -37,14 +37,13 @@ def list_requests():
         query = query.filter_by(status_code=rr_service.STATUS_SUBMITTED)
     elif status_filter == 'processing':
         query = query.filter(ReliefRqst.status_code.in_([
-            rr_service.STATUS_UNDER_REVIEW,
-            rr_service.STATUS_APPROVED,
-            rr_service.STATUS_PACKAGE_PREPARED
+            rr_service.STATUS_AWAITING_APPROVAL,
+            rr_service.STATUS_PART_FILLED
         ]))
     elif status_filter == 'dispatched':
-        query = query.filter_by(status_code=rr_service.STATUS_DISPATCHED)
+        query = query.filter_by(status_code=rr_service.STATUS_CLOSED)
     elif status_filter == 'completed':
-        query = query.filter_by(status_code=rr_service.STATUS_DELIVERED)
+        query = query.filter_by(status_code=rr_service.STATUS_FILLED)
     
     requests_list = query.order_by(ReliefRqst.request_date.desc()).all()
     
@@ -57,8 +56,8 @@ def list_requests():
                          status_filter=status_filter,
                          STATUS_DRAFT=rr_service.STATUS_DRAFT,
                          STATUS_SUBMITTED=rr_service.STATUS_SUBMITTED,
-                         STATUS_DISPATCHED=rr_service.STATUS_DISPATCHED,
-                         STATUS_DELIVERED=rr_service.STATUS_DELIVERED)
+                         STATUS_CLOSED=rr_service.STATUS_CLOSED,
+                         STATUS_FILLED=rr_service.STATUS_FILLED)
 
 
 @requests_bp.route('/create', methods=['GET', 'POST'])
