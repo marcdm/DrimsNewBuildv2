@@ -46,6 +46,26 @@ from app.features.locations import locations_bp
 from app.features.notifications import notifications_bp
 from app.features.reports import reports_bp
 from app.core.status import get_status_label, get_status_badge_class
+from app.core.rbac import (
+    has_role, has_all_roles, has_warehouse_access,
+    is_admin, is_logistics_manager, is_logistics_officer,
+    can_approve_needs_lists, can_prepare_fulfilments, can_manage_users,
+    can_submit_needs_lists, can_view_reports
+)
+
+app.jinja_env.globals.update(
+    has_role=has_role,
+    has_all_roles=has_all_roles,
+    has_warehouse_access=has_warehouse_access,
+    is_admin=is_admin,
+    is_logistics_manager=is_logistics_manager,
+    is_logistics_officer=is_logistics_officer,
+    can_approve_needs_lists=can_approve_needs_lists,
+    can_prepare_fulfilments=can_prepare_fulfilments,
+    can_manage_users=can_manage_users,
+    can_submit_needs_lists=can_submit_needs_lists,
+    can_view_reports=can_view_reports
+)
 
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 app.register_blueprint(events_bp)

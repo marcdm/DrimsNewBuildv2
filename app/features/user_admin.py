@@ -2,33 +2,21 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 from app.db.models import db, User, Role, UserRole, UserWarehouse, Warehouse
+from app.core.rbac import role_required
 
 user_admin_bp = Blueprint('user_admin', __name__)
 
-def require_admin():
-    if not current_user.is_authenticated:
-        flash('Please log in to access this page.', 'warning')
-        return False
-    user_roles = [r.code for r in current_user.roles]
-    if 'ADMIN' not in user_roles and 'System Administrator' not in [r.name for r in current_user.roles]:
-        flash('You do not have permission to access user administration.', 'danger')
-        return False
-    return True
-
 @user_admin_bp.route('/')
 @login_required
+@role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def index():
-    if not require_admin():
-        return redirect(url_for('index'))
-    
     users = User.query.order_by(User.created_at.desc()).all()
     return render_template('user_admin/index.html', users=users)
 
 @user_admin_bp.route('/create', methods=['GET', 'POST'])
 @login_required
+@role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def create():
-    if not require_admin():
-        return redirect(url_for('index'))
     
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -89,18 +77,16 @@ def create():
 
 @user_admin_bp.route('/<int:user_id>')
 @login_required
+@role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def view(user_id):
-    if not require_admin():
-        return redirect(url_for('index'))
     
     user = User.query.get_or_404(user_id)
     return render_template('user_admin/view.html', user=user)
 
 @user_admin_bp.route('/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
+@role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def edit(user_id):
-    if not require_admin():
-        return redirect(url_for('index'))
     
     user = User.query.get_or_404(user_id)
     
@@ -149,9 +135,8 @@ def edit(user_id):
 
 @user_admin_bp.route('/<int:user_id>/deactivate', methods=['POST'])
 @login_required
+@role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def deactivate(user_id):
-    if not require_admin():
-        return redirect(url_for('index'))
     
     if user_id == current_user.id:
         flash('You cannot deactivate your own account.', 'danger')
@@ -166,9 +151,8 @@ def deactivate(user_id):
 
 @user_admin_bp.route('/<int:user_id>/activate', methods=['POST'])
 @login_required
+@role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def activate(user_id):
-    if not require_admin():
-        return redirect(url_for('index'))
     
     user = User.query.get_or_404(user_id)
     user.is_active = True
