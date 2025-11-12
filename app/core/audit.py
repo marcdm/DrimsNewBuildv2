@@ -10,21 +10,22 @@ def add_audit_fields(obj, user_id, is_new=True):
     
     Args:
         obj: SQLAlchemy model instance
-        user_id: Current user ID (username as string)
+        user_id: Current user ID (username or email) - will be converted to UPPERCASE per schema requirements
         is_new: True if creating new record, False if updating
     """
     now = datetime.now()
+    user_id_upper = user_id.upper()
     
     if is_new:
         if hasattr(obj, 'create_by_id'):
-            obj.create_by_id = user_id
+            obj.create_by_id = user_id_upper
         if hasattr(obj, 'create_dtime'):
             obj.create_dtime = now
         if hasattr(obj, 'version_nbr'):
             obj.version_nbr = 1
     
     if hasattr(obj, 'update_by_id'):
-        obj.update_by_id = user_id
+        obj.update_by_id = user_id_upper
     if hasattr(obj, 'update_dtime'):
         obj.update_dtime = now
     if hasattr(obj, 'version_nbr') and not is_new:
@@ -33,11 +34,12 @@ def add_audit_fields(obj, user_id, is_new=True):
     return obj
 
 def add_verify_fields(obj, user_id):
-    """Add verification audit fields"""
+    """Add verification audit fields - UPPERCASE enforced per schema"""
     now = datetime.now()
+    user_id_upper = user_id.upper()
     
     if hasattr(obj, 'verify_by_id'):
-        obj.verify_by_id = user_id
+        obj.verify_by_id = user_id_upper
     if hasattr(obj, 'verify_dtime'):
         obj.verify_dtime = now
     

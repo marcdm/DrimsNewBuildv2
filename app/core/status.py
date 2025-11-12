@@ -23,36 +23,36 @@ INVENTORY_STATUS = {
 }
 
 DONATION_STATUS = {
-    'E': 'Entered',
-    'V': 'Verified'
+    'A': 'Accepted',
+    'P': 'Pending',
+    'C': 'Completed'
 }
 
 RELIEFRQST_STATUS = {
-    0: 'Draft',
-    1: 'Awaiting Approval',
-    2: 'Cancelled',
-    3: 'Submitted',
-    4: 'Denied',
-    5: 'Part Filled',
-    6: 'Closed',
-    7: 'Filled'
+    0: 'Pending',
+    1: 'In Review',
+    2: 'Approved',
+    3: 'Partial',
+    4: 'Fulfilled',
+    5: 'Rejected',
+    6: 'Cancelled',
+    7: 'Closed'
 }
 
 RELIEFRQST_ITEM_STATUS = {
     'R': 'Requested',
     'U': 'Unavailable',
-    'W': 'Waiting Availability',
+    'W': 'Waiting',
     'D': 'Denied',
-    'P': 'Partly Filled',
-    'L': 'Limit Allowed',
-    'F': 'Filled'
+    'P': 'Partial',
+    'L': 'Limited',
+    'F': 'Fulfilled'
 }
 
 RELIEFPKG_STATUS = {
-    'P': 'Processing',
-    'C': 'Completed',
-    'V': 'Verified',
-    'D': 'Dispatched'
+    'P': 'Pending',
+    'D': 'Dispatched',
+    'C': 'Completed'
 }
 
 INTAKE_STATUS = {
@@ -68,11 +68,16 @@ URGENCY_IND = {
     'C': 'Critical'
 }
 
-URGENCY_BADGE_CLASS = {
-    'L': 'secondary',
-    'M': 'info',
-    'H': 'warning',
-    'C': 'danger'
+STATUS_BADGE_MAP = {
+    'event': {'A': 'success', 'C': 'secondary'},
+    'warehouse': {'A': 'success', 'I': 'secondary'},
+    'item': {'A': 'success', 'I': 'secondary'},
+    'inventory': {'A': 'success', 'I': 'secondary'},
+    'donation': {'A': 'success', 'P': 'warning', 'C': 'secondary'},
+    'reliefpkg': {'P': 'warning', 'D': 'primary', 'C': 'success'},
+    'reliefrqst': {0: 'warning', 1: 'info', 2: 'primary', 3: 'warning', 4: 'success', 5: 'danger', 6: 'secondary', 7: 'secondary'},
+    'reliefrqst_item': {'R': 'info', 'U': 'danger', 'W': 'warning', 'D': 'danger', 'P': 'warning', 'L': 'info', 'F': 'success'},
+    'urgency': {'L': 'secondary', 'M': 'info', 'H': 'warning', 'C': 'danger'}
 }
 
 def get_status_label(status_code, status_type='event'):
@@ -94,18 +99,4 @@ def get_status_label(status_code, status_type='event'):
 
 def get_status_badge_class(status_code, status_type='event'):
     """Get Bootstrap badge class for status"""
-    if status_type == 'urgency':
-        return URGENCY_BADGE_CLASS.get(status_code, 'secondary')
-    
-    active_statuses = ['A', 0, 3, 'P', 'R']
-    success_statuses = ['V', 7, 'F']
-    danger_statuses = ['C', 'I', 2, 4, 'D', 'U']
-    
-    if status_code in active_statuses:
-        return 'primary'
-    elif status_code in success_statuses:
-        return 'success'
-    elif status_code in danger_statuses:
-        return 'secondary'
-    else:
-        return 'warning'
+    return STATUS_BADGE_MAP.get(status_type, {}).get(status_code, 'secondary')

@@ -324,3 +324,29 @@ class ReliefPkg(db.Model):
     
     relief_request = db.relationship('ReliefRqst', backref='packages')
     to_inventory = db.relationship('Inventory', backref='relief_packages')
+
+class ReliefPkgItem(db.Model):
+    """Relief Package Item"""
+    __tablename__ = 'reliefpkg_item'
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ['fr_inventory_id', 'item_id'],
+            ['inventory.inventory_id', 'inventory.item_id']
+        ),
+    )
+    
+    reliefpkg_id = db.Column(db.Integer, db.ForeignKey('reliefpkg.reliefpkg_id'), primary_key=True)
+    fr_inventory_id = db.Column(db.Integer, db.ForeignKey('inventory.inventory_id'), primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.item_id'), primary_key=True)
+    item_qty = db.Column(db.Numeric(12, 2), nullable=False)
+    uom_code = db.Column(db.String(25), db.ForeignKey('unitofmeasure.uom_code'), nullable=False)
+    reason_text = db.Column(db.String(255))
+    create_by_id = db.Column(db.String(20), nullable=False)
+    create_dtime = db.Column(db.DateTime, nullable=False)
+    update_by_id = db.Column(db.String(20), nullable=False)
+    update_dtime = db.Column(db.DateTime, nullable=False)
+    version_nbr = db.Column(db.Integer, nullable=False, default=1)
+    
+    package = db.relationship('ReliefPkg', backref='items')
+    item = db.relationship('Item', backref='package_items')
+    from_inventory = db.relationship('Inventory', foreign_keys=[fr_inventory_id, item_id])

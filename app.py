@@ -29,14 +29,27 @@ from app.features.warehouses import warehouses_bp
 from app.features.items import items_bp
 from app.features.inventory import inventory_bp
 from app.features.requests_aidmgmt import requests_bp
+from app.features.packages_aidmgmt import packages_bp
 from app.features.donations import donations_bp
+from app.core.status import get_status_label, get_status_badge_class
 
 app.register_blueprint(events_bp)
 app.register_blueprint(warehouses_bp)
 app.register_blueprint(items_bp)
 app.register_blueprint(inventory_bp)
 app.register_blueprint(requests_bp)
+app.register_blueprint(packages_bp)
 app.register_blueprint(donations_bp)
+
+@app.template_filter('status_badge')
+def status_badge_filter(status_code, entity_type):
+    """Return Bootstrap badge color class for status codes"""
+    return get_status_badge_class(status_code, entity_type)
+
+@app.template_filter('status_label')
+def status_label_filter(status_code, entity_type):
+    """Return human-readable label for status codes"""
+    return get_status_label(status_code, entity_type)
 
 @app.route('/')
 @login_required
@@ -95,18 +108,6 @@ def logout():
     logout_user()
     flash('You have been logged out', 'info')
     return redirect(url_for('login'))
-
-@app.template_filter('status_label')
-def status_label_filter(status_code, status_type='event'):
-    """Template filter for status labels"""
-    from app.core.status import get_status_label
-    return get_status_label(status_code, status_type)
-
-@app.template_filter('status_badge')
-def status_badge_filter(status_code, status_type='event'):
-    """Template filter for status badge classes"""
-    from app.core.status import get_status_badge_class
-    return get_status_badge_class(status_code, status_type)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
