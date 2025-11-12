@@ -8,12 +8,14 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint
 
 class User(UserMixin, db.Model):
-    """User authentication model (DRIMS extension)"""
+    """User authentication model with MFA and lockout support"""
     __tablename__ = 'user'
     
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(200), unique=True, nullable=False)
+    username = db.Column(db.String(60), unique=True)
     password_hash = db.Column(db.String(256), nullable=False)
+    password_algo = db.Column(db.String(20), nullable=False, default='argon2id')
     first_name = db.Column(db.String(100))
     last_name = db.Column(db.String(100))
     full_name = db.Column(db.String(200))
@@ -24,8 +26,19 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    mfa_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    mfa_secret = db.Column(db.String(64))
+    failed_login_count = db.Column(db.SmallInteger, nullable=False, default=0)
+    lock_until_at = db.Column(db.DateTime)
+    password_changed_at = db.Column(db.DateTime)
+    
+    agency_id = db.Column(db.Integer, db.ForeignKey('agency.agency_id'))
+    status_code = db.Column(db.CHAR(1), nullable=False, default='A')
+    version_nbr = db.Column(db.Integer, nullable=False, default=1)
+    
     roles = db.relationship('Role', secondary='user_role', back_populates='users')
     warehouses = db.relationship('Warehouse', secondary='user_warehouse', back_populates='users')
+    agency = db.relationship('Agency', foreign_keys=[agency_id], backref='users')
 
 class Role(db.Model):
     """Role definitions for RBAC"""

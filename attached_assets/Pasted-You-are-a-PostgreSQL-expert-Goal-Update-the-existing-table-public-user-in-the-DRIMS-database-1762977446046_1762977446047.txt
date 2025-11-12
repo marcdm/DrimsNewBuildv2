@@ -1,0 +1,94 @@
+You are a PostgreSQL expert.
+
+Goal:
+Update the existing table public."user" in the DRIMS database to support full account management, MFA, lockout, and optimistic locking — without losing any existing data or breaking current foreign keys.
+
+Instructions:
+1. Execute the following SQL migration exactly as provided.
+2. Do NOT drop or alter any existing columns.
+3. Add new columns only if they don’t already exist.
+4. Preserve all data and constraints.
+5. Ensure all updates are idempotent and safe to rerun.
+6. Confirm that the updated table supports:
+   - MFA (mfa_enabled, mfa_secret)
+   - Lockout control (failed_login_count, lock_until_at)
+   - Optimistic locking (version_nbr)
+   - Agency linkage (agency_id → agency.agency_id)
+   - Updated audit handling (status_code check, triggers)
+7. Run this script:
+sql
+Copy code
+BEGIN;
+
+-- Ensure citext for case-insensitive email
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'citext') THEN
+    CREATE EXTENSION citext;
+  END IF;
+END$$;
+
+ALTER TABLE public."user"
+  ADD COLUMN IF NOT EXISTS username varchar(60),
+  ADD COLUMN IF NOT EXISTS password_algo varchar(20) DEFAULT 'argon2id' NOT NULL,
+  ADD COLUMN IF NOT EXISTS mfa_enabled boolean DEFAULT false NOT NULL,
+  ADD COLUMN IF NOT EXISTS mfa_secret varchar(64),
+  ADD COLUMN IF NOT EXISTS failed_login_count smallint DEFAULT 0 NOT NULL,
+  ADD COLUMN IF NOT EXISTS lock_until_at timestamp(0) without time zone,
+  ADD COLUMN IF NOT EXISTS password_changed_at timestamp(0) without time zone,
+  ADD COLUMN IF NOT EXISTS agency_id integer,
+  ADD COLUMN IF NOT EXISTS status_code char(1) DEFAULT 'A' NOT NULL,
+  ADD COLUMN IF NOT EXISTS version_nbr integer;
+
+UPDATE public."user" SET version_nbr = COALESCE(version_nbr, 1);
+ALTER TABLE public."user" ALTER COLUMN version_nbr SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'c_user_status_code'
+      AND conrelid = 'public."user"'::regclass
+  ) THEN
+    ALTER TABLE public."user"
+      ADD CONSTRAINT c_user_status_code CHECK (status_code IN ('A','I','L'));
+  END IF;
+END$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'user_agency_id_fkey'
+      AND conrelid = 'public."user"'::regclass
+  ) THEN
+    ALTER TABLE public."user"
+      ADD CONSTRAINT user_agency_id_fkey
+      FOREIGN KEY (agency_id) REFERENCES public.agency(agency_id);
+  END IF;
+END$$;
+
+COMMIT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_username ON public."user"(username);
+CREATE INDEX IF NOT EXISTS dk_user_agency_id ON public."user"(agency_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='set_updated_at') THEN
+    CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $f$
+    BEGIN
+      NEW.updated_at := CURRENT_TIMESTAMP;
+      RETURN NEW;
+    END; $f$ LANGUAGE plpgsql;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname='trg_user_set_updated_at'
+      AND tgrelid='public."user"'::regclass
+  ) THEN
+    CREATE TRIGGER trg_user_set_updated_at
+    BEFORE UPDATE ON public."user"
+    FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
+  END IF;
+END$$;
