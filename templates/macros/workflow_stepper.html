@@ -23,7 +23,8 @@
     'name': 'Submitted to ODPEM',
     'description': 'Awaiting review',
     'status_codes': [1, 3],
-    'icon': 'bi-send-check'
+    'icon': 'bi-send-check',
+    'terminal_codes': [2, 4]
   },
   {
     'number': 3,
@@ -48,18 +49,30 @@
   }
 ] %}
 
+{# Check for terminal states (cancelled/denied) #}
+{% set is_terminal = current_status_code in [2, 4] %}
+{% set terminal_label = 'Cancelled' if current_status_code == 2 else ('Denied' if current_status_code == 4 else '') %}
+
 {% set current_step = 1 %}
 {% for step in steps %}
   {% if current_status_code in step.status_codes %}
+    {% set current_step = step.number %}
+  {% elif 'terminal_codes' in step and current_status_code in step.terminal_codes %}
     {% set current_step = step.number %}
   {% endif %}
 {% endfor %}
 
 <div class="workflow-stepper mb-4">
+  {% if is_terminal %}
+  <div class="alert alert-{% if current_status_code == 2 %}warning{% else %}danger{% endif %} mb-3">
+    <i class="bi bi-{% if current_status_code == 2 %}x-circle{% else %}exclamation-triangle{% endif %}"></i>
+    <strong>Request {{ terminal_label }}</strong> - This request did not proceed through the normal workflow.
+  </div>
+  {% endif %}
   <div class="row">
     {% for step in steps %}
     <div class="col">
-      <div class="step {% if step.number == current_step %}active{% elif step.number < current_step %}completed{% else %}pending{% endif %}">
+      <div class="step {% if step.number == current_step and not is_terminal %}active{% elif step.number < current_step or (step.number == current_step and is_terminal) %}{% if is_terminal %}cancelled{% else %}completed{% endif %}{% else %}pending{% endif %}">
         <div class="step-icon">
           <i class="bi {{ step.icon }}"></i>
           <span class="step-number">{{ step.number }}</span>
@@ -117,6 +130,12 @@
   color: white;
 }
 
+.workflow-stepper .step.cancelled .step-icon {
+  background: #dc3545;
+  color: white;
+  opacity: 0.7;
+}
+
 .workflow-stepper .step-number {
   position: absolute;
   top: -8px;
@@ -143,6 +162,11 @@
   color: #198754;
 }
 
+.workflow-stepper .step.cancelled .step-number {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
 .workflow-stepper .step-title {
   font-weight: 600;
   font-size: 0.9rem;
@@ -156,6 +180,11 @@
 
 .workflow-stepper .step.completed .step-title {
   color: #198754;
+}
+
+.workflow-stepper .step.cancelled .step-title {
+  color: #dc3545;
+  opacity: 0.7;
 }
 
 .workflow-stepper .step-description {
@@ -175,6 +204,11 @@
 
 .workflow-stepper .step.completed .step-connector {
   background: #198754;
+}
+
+.workflow-stepper .step.cancelled .step-connector {
+  background: #dc3545;
+  opacity: 0.5;
 }
 
 @media (max-width: 768px) {

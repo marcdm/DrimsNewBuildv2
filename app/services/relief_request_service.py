@@ -34,19 +34,36 @@ def get_workflow_steps(status_code: int) -> Dict:
     """
     Map status code to workflow step for the dynamic stepper component.
     Returns current step number (1-5) and step metadata.
+    Aligned with ODPEM AIDMGMT-3 canonical status codes (0-7).
     """
-    if status_code == STATUS_DRAFT:
-        return {'current_step': 1, 'step_name': 'Prepare Request', 'status': 'active'}
-    elif status_code == STATUS_SUBMITTED:
-        return {'current_step': 2, 'step_name': 'Submitted to ODPEM', 'status': 'active'}
-    elif status_code in [STATUS_UNDER_REVIEW, STATUS_APPROVED, STATUS_PACKAGE_PREPARED]:
-        return {'current_step': 3, 'step_name': 'ODPEM Processing', 'status': 'active'}
-    elif status_code == STATUS_DISPATCHED:
-        return {'current_step': 4, 'step_name': 'Goods Dispatched', 'status': 'active'}
-    elif status_code == STATUS_DELIVERED:
-        return {'current_step': 5, 'step_name': 'Goods Received', 'status': 'completed'}
+    # Step 1: Draft (0)
+    if status_code == 0:  # Draft
+        return {'current_step': 1, 'step_name': 'Prepare Request', 'status': 'active', 'is_terminal': False}
+    
+    # Step 2: Submitted/Awaiting Approval (1, 3) + Terminal states (2, 4)
+    elif status_code == 1:  # Awaiting Approval
+        return {'current_step': 2, 'step_name': 'Awaiting Approval', 'status': 'active', 'is_terminal': False}
+    elif status_code == 2:  # Cancelled
+        return {'current_step': 2, 'step_name': 'Cancelled', 'status': 'cancelled', 'is_terminal': True}
+    elif status_code == 3:  # Submitted
+        return {'current_step': 2, 'step_name': 'Submitted to ODPEM', 'status': 'active', 'is_terminal': False}
+    elif status_code == 4:  # Denied
+        return {'current_step': 2, 'step_name': 'Denied', 'status': 'cancelled', 'is_terminal': True}
+    
+    # Step 3: Partially Filled (5)
+    elif status_code == 5:  # Partially Filled
+        return {'current_step': 3, 'step_name': 'ODPEM Processing', 'status': 'active', 'is_terminal': False}
+    
+    # Step 4: Filled/Dispatched (7)
+    elif status_code == 7:  # Filled
+        return {'current_step': 4, 'step_name': 'Goods Dispatched', 'status': 'active', 'is_terminal': False}
+    
+    # Step 5: Closed (6)
+    elif status_code == 6:  # Closed
+        return {'current_step': 5, 'step_name': 'Goods Received', 'status': 'completed', 'is_terminal': False}
+    
     else:
-        return {'current_step': 1, 'step_name': 'Unknown', 'status': 'active'}
+        return {'current_step': 1, 'step_name': 'Unknown', 'status': 'active', 'is_terminal': False}
 
 
 def create_draft_request(agency_id: int, urgency_ind: str, eligible_event_id: Optional[int],
