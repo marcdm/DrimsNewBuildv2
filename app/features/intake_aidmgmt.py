@@ -44,8 +44,17 @@ def create_intake():
             defective_qtys = request.form.getlist('defective_qty[]')
             expired_qtys = request.form.getlist('expired_qty[]')
             
-            if not item_ids or all(not qty for qty in usable_qtys + defective_qtys + expired_qtys):
-                flash('At least one item with quantity is required', 'danger')
+            has_positive_qty = False
+            for u, d, e in zip(usable_qtys, defective_qtys, expired_qtys):
+                u_val = float(u) if u else 0
+                d_val = float(d) if d else 0
+                e_val = float(e) if e else 0
+                if u_val > 0 or d_val > 0 or e_val > 0:
+                    has_positive_qty = True
+                    break
+            
+            if not item_ids or not has_positive_qty:
+                flash('At least one item with positive quantity is required', 'danger')
                 return redirect(url_for('intake.create_intake'))
             
             user_id_upper = str(current_user.id).upper()
@@ -148,6 +157,11 @@ def create_intake():
                     item_inventory.defective_qty += defective
                     item_inventory.expired_qty += expired
                     item_inventory.receive_qty += total_qty
+            
+            if first_inventory_id is None:
+                flash('No valid items were processed', 'danger')
+                db.session.rollback()
+                return redirect(url_for('intake.create_intake'))
             
             db.session.commit()
             flash('Intake record created successfully', 'success')
