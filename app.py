@@ -31,6 +31,7 @@ from app.features.inventory import inventory_bp
 from app.features.requests_aidmgmt import requests_bp
 from app.features.packages_aidmgmt import packages_bp
 from app.features.donations import donations_bp
+from app.features.intake_aidmgmt import bp as intake_bp
 from app.core.status import get_status_label, get_status_badge_class
 
 app.register_blueprint(events_bp)
@@ -40,6 +41,7 @@ app.register_blueprint(inventory_bp)
 app.register_blueprint(requests_bp)
 app.register_blueprint(packages_bp)
 app.register_blueprint(donations_bp)
+app.register_blueprint(intake_bp)
 
 @app.template_filter('status_badge')
 def status_badge_filter(status_code, entity_type):

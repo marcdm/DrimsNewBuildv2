@@ -68,6 +68,11 @@ URGENCY_IND = {
     'C': 'Critical'
 }
 
+DBINTAKE_ITEM_STATUS = {
+    'P': 'Pending',
+    'V': 'Verified'
+}
+
 STATUS_BADGE_MAP = {
     'event': {'A': 'success', 'C': 'secondary'},
     'warehouse': {'A': 'success', 'I': 'secondary'},
@@ -77,7 +82,9 @@ STATUS_BADGE_MAP = {
     'reliefpkg': {'P': 'warning', 'D': 'primary', 'C': 'success'},
     'reliefrqst': {0: 'warning', 1: 'info', 2: 'primary', 3: 'warning', 4: 'success', 5: 'danger', 6: 'secondary', 7: 'secondary'},
     'reliefrqst_item': {'R': 'info', 'U': 'danger', 'W': 'warning', 'D': 'danger', 'P': 'warning', 'L': 'info', 'F': 'success'},
-    'urgency': {'L': 'secondary', 'M': 'info', 'H': 'warning', 'C': 'danger'}
+    'urgency': {'L': 'secondary', 'M': 'info', 'H': 'warning', 'C': 'danger'},
+    'dbintake': {'I': 'warning', 'C': 'success', 'V': 'primary'},
+    'dbintake_item': {'P': 'warning', 'V': 'success'}
 }
 
 def get_status_label(status_code, status_type='event'):
@@ -92,6 +99,8 @@ def get_status_label(status_code, status_type='event'):
         'reliefrqst_item': RELIEFRQST_ITEM_STATUS,
         'reliefpkg': RELIEFPKG_STATUS,
         'intake': INTAKE_STATUS,
+        'dbintake': INTAKE_STATUS,
+        'dbintake_item': DBINTAKE_ITEM_STATUS,
         'urgency': URGENCY_IND
     }
     

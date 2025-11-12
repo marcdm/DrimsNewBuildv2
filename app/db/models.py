@@ -350,3 +350,53 @@ class ReliefPkgItem(db.Model):
     package = db.relationship('ReliefPkg', backref='items')
     item = db.relationship('Item', backref='package_items')
     from_inventory = db.relationship('Inventory', foreign_keys=[fr_inventory_id, item_id])
+
+class DBIntake(db.Model):
+    """Distribution/Donation Intake (AIDMGMT workflow step 3)"""
+    __tablename__ = 'dbintake'
+    
+    reliefpkg_id = db.Column(db.Integer, db.ForeignKey('reliefpkg.reliefpkg_id'), primary_key=True)
+    inventory_id = db.Column(db.Integer, db.ForeignKey('inventory.inventory_id'), primary_key=True)
+    intake_date = db.Column(db.Date, nullable=False)
+    comments_text = db.Column(db.String(255))
+    status_code = db.Column(db.CHAR(1), nullable=False)
+    create_by_id = db.Column(db.String(20), nullable=False)
+    create_dtime = db.Column(db.DateTime, nullable=False)
+    update_by_id = db.Column(db.String(20), nullable=False)
+    update_dtime = db.Column(db.DateTime)
+    verify_by_id = db.Column(db.String(20))
+    verify_dtime = db.Column(db.DateTime)
+    version_nbr = db.Column(db.Integer, nullable=False, default=1)
+    
+    package = db.relationship('ReliefPkg', backref='intake_records')
+    inventory = db.relationship('Inventory', backref='intake_records')
+
+class DBIntakeItem(db.Model):
+    """Distribution/Donation Intake Item"""
+    __tablename__ = 'dbintake_item'
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ['reliefpkg_id', 'inventory_id'],
+            ['dbintake.reliefpkg_id', 'dbintake.inventory_id']
+        ),
+    )
+    
+    reliefpkg_id = db.Column(db.Integer, primary_key=True)
+    inventory_id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.item_id'), primary_key=True)
+    usable_qty = db.Column(db.Numeric(12, 2), nullable=False)
+    location1_id = db.Column(db.Integer, db.ForeignKey('location.location_id'))
+    defective_qty = db.Column(db.Numeric(12, 2), nullable=False)
+    location2_id = db.Column(db.Integer, db.ForeignKey('location.location_id'))
+    expired_qty = db.Column(db.Numeric(12, 2), nullable=False)
+    location3_id = db.Column(db.Integer, db.ForeignKey('location.location_id'))
+    uom_code = db.Column(db.String(25), db.ForeignKey('unitofmeasure.uom_code'), nullable=False)
+    status_code = db.Column(db.CHAR(1), nullable=False)
+    comments_text = db.Column(db.String(255))
+    create_by_id = db.Column(db.String(20), nullable=False)
+    create_dtime = db.Column(db.DateTime, nullable=False)
+    update_by_id = db.Column(db.String(20), nullable=False)
+    update_dtime = db.Column(db.DateTime, nullable=False)
+    version_nbr = db.Column(db.Integer, nullable=False, default=1)
+    
+    item = db.relationship('Item', backref='intake_items')
