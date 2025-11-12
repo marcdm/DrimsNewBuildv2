@@ -64,7 +64,7 @@ def create():
             if item_count == 0:
                 flash('Please add at least one item to the needs list', 'danger')
                 db.session.rollback()
-                agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
+                agencies = Agency.query.order_by(Agency.agency_name).all()
                 events = Event.query.filter_by(status_code='A').order_by(Event.event_name).all()
                 items = Item.query.filter_by(status_code='A').order_by(Item.item_name).all()
                 return render_template('needs_list/create.html', agencies=agencies, events=events, items=items)
@@ -77,7 +77,7 @@ def create():
             db.session.rollback()
             flash(f'Error creating needs list: {str(e)}', 'danger')
     
-    agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
+    agencies = Agency.query.order_by(Agency.agency_name).all()
     events = Event.query.filter_by(status_code='A').order_by(Event.event_name).all()
     items = Item.query.filter_by(status_code='A').order_by(Item.item_name).all()
     return render_template('needs_list/create.html', agencies=agencies, events=events, items=items)
