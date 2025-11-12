@@ -21,6 +21,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 12, 2025 - Agency Account Creation Workflow Tables
+- **New Tables**: Added two tables for agency account request workflow without altering any existing tables
+  - **`agency_account_request`**: Main request table with optimistic locking (version_nbr)
+    - Workflow status: S=submitted, R=review, A=approved, D=denied
+    - Links to agency and user upon approval/provisioning
+    - Partial unique constraint on contact_email while status in ('S','R')
+    - Auto-update trigger using existing `set_updated_at()` function
+  - **`agency_account_request_audit`**: Immutable audit log for all workflow events
+    - Event types: submitted, moved_to_review, approved, denied, provisioned
+    - Tracks actor, timestamp, and notes for full audit trail
+- **Foreign Keys**: Both tables properly linked to existing `agency` and `user` tables
+- **Constraints**: CHECK constraint on status_code, foreign keys enforced
+- **Indexes**: Unique partial index on active email, composite index on status/created_at
+- **Models**: Created `AgencyAccountRequest` and `AgencyAccountRequestAudit` SQLAlchemy models
+- **Optimistic Locking**: Fully supports concurrent request processing with version_nbr
+- **Safety**: All changes isolated to new tables; zero modifications to existing schema
+
 ### November 12, 2025 - User Table Enhancement for Full Account Management
 - **Database Migration**: Added comprehensive user account management columns to `public.user` table
   - **MFA Support**: `mfa_enabled` (boolean), `mfa_secret` (varchar) for multi-factor authentication
