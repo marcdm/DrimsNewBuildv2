@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Items - Request #{{ request.reliefrqst_id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h2 class="text-goj-green mb-1">
+                <i class="bi bi-pencil-square"></i> Edit Request Items
+            </h2>
+            <p class="text-muted mb-0">Request #{{ request.reliefrqst_id }} - {{ request.agency.agency_name }}</p>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-8">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                <strong>Step 2 of 2:</strong> Add items to your request with quantities and justifications. You can submit the request to ODPEM after adding all required items.
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('agency_requests.view_request', reliefrqst_id=request.reliefrqst_id) }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Request
+            </a>
+        </div>
+    </div>
+
+    <div class="drims-card">
+        <h5 class="mb-3"><i class="bi bi-plus-circle"></i> Add New Item</h5>
+        <form method="POST" action="{{ url_for('agency_requests.add_item', reliefrqst_id=request.reliefrqst_id) }}" id="addItemForm">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="item_id" class="form-label">Item *</label>
+                    <select class="form-select" id="item_id" name="item_id" required>
+                        <option value="">Select item...</option>
+                        {% for item in available_items %}
+                        <option value="{{ item.item_id }}" data-sku="{{ item.sku_code }}" data-uom="{{ item.uom_code }}">
+                            {{ item.item_name }} ({{ item.sku_code }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="item_qty" class="form-label">Quantity *</label>
+                    <input type="number" class="form-control" id="item_qty" name="item_qty" step="0.01" min="0.01" required>
+                    <small class="text-muted" id="uom_hint">Unit: <span id="selected_uom">—</span></small>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="urgency_ind" class="form-label">Urgency *</label>
+                    <select class="form-select" id="urgency_ind" name="urgency_ind" required>
+                        <option value="">Select...</option>
+                        <option value="1">Emergency</option>
+                        <option value="2">Urgent</option>
+                        <option value="3">Normal</option>
+                        <option value="4">Low</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="notes" class="form-label">Justification / Notes *</label>
+                <textarea class="form-control" id="notes" name="notes" rows="2" placeholder="Explain why this item is needed and how it will be used..." required></textarea>
+                <small class="text-muted">Provide specific justification for this item request</small>
+            </div>
+            <button type="submit" class="btn btn-goj">
+                <i class="bi bi-plus-circle"></i> Add Item to Request
+            </button>
+        </form>
+    </div>
+
+    <div class="drims-card mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-list-ul"></i> Current Items ({{ request.items|length }})</h5>
+            {% if request.items|length > 0 %}
+                <form method="POST" action="{{ url_for('agency_requests.submit_request', reliefrqst_id=request.reliefrqst_id) }}" style="display: inline;" onsubmit="return confirm('Submit this request to ODPEM? You will not be able to edit it after submission.');">
+                    <button type="submit" class="btn btn-goj">
+                        <i class="bi bi-send"></i> Submit Request to ODPEM
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        {% if request.items %}
+        <div class="table-responsive">
+            <table class="table drims-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>SKU</th>
+                        <th class="text-end">Quantity</th>
+                        <th>Urgency</th>
+                        <th>Justification</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in request.items %}
+                    <tr>
+                        <td>{{ item.item.item_name }}</td>
+                        <td><code>{{ item.item.sku_code }}</code></td>
+                        <td class="text-end">
+                            <strong>{{ "%.2f"|format(item.item_qty) }}</strong>
+                            {{ item.uom.uom_code }}
+                        </td>
+                        <td>
+                            {% if item.urgency_ind == 1 %}
+                                <span class="badge bg-danger">Emergency</span>
+                            {% elif item.urgency_ind == 2 %}
+                                <span class="badge bg-warning text-dark">Urgent</span>
+                            {% elif item.urgency_ind == 3 %}
+                                <span class="badge bg-info text-dark">Normal</span>
+                            {% elif item.urgency_ind == 4 %}
+                                <span class="badge bg-secondary">Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.notes %}
+                                {{ item.notes[:100] }}{% if item.notes|length > 100 %}...{% endif %}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <form method="POST" action="{{ url_for('agency_requests.remove_item', reliefrqst_id=request.reliefrqst_id, item_id=item.item_id) }}" style="display: inline;" onsubmit="return confirm('Remove this item from the request?');">
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-trash"></i> Remove
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="bi bi-inbox" style="font-size: 3rem; color: #dee2e6;"></i>
+            <p class="text-muted mt-2 mb-0">No items added yet. Use the form above to add items to this request.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Update UOM hint when item is selected
+document.getElementById('item_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const uomCode = selectedOption.getAttribute('data-uom');
+    const uomHint = document.getElementById('selected_uom');
+    if (uomCode) {
+        uomHint.textContent = uomCode;
+    } else {
+        uomHint.textContent = '—';
+    }
+});
+</script>
+{% endblock %}

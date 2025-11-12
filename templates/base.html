@@ -475,9 +475,15 @@
         </a>
         
         <div class="nav-section-header">AIDMGMT</div>
+        {% if current_user.agency_id %}
+        <a href="{{ url_for('agency_requests.list_requests') }}" class="nav-item-link {% if active_page == 'agency_requests' %}active{% endif %}">
+            <i class="bi bi-file-earmark-person"></i>
+            <span class="nav-label">My Relief Requests</span>
+        </a>
+        {% endif %}
         <a href="{{ url_for('requests.list_requests') }}" class="nav-item-link {% if active_page == 'requests' %}active{% endif %}">
             <i class="bi bi-file-text"></i>
-            <span class="nav-label">Relief Requests</span>
+            <span class="nav-label">All Relief Requests</span>
         </a>
         <a href="{{ url_for('packages.list_packages') }}" class="nav-item-link {% if active_page == 'packages' %}active{% endif %}">
             <i class="bi bi-box"></i>
