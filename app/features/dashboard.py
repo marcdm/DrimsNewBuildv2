@@ -12,6 +12,12 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @dashboard_bp.route('/')
 @login_required
 def index():
+    from flask_login import current_user
+    from app.db.models import ItemCateg
+    
+    user_role_codes = [r.code for r in current_user.roles] if current_user.roles else []
+    user_role_names = [r.name for r in current_user.roles] if current_user.roles else []
+    
     total_items = Item.query.filter_by(status_code='A').count()
     total_warehouses = Warehouse.query.filter_by(status_code='A').count()
     total_events = Event.query.filter_by(status_code='A').count()
@@ -49,9 +55,13 @@ def index():
         Warehouse.warehouse_id, Warehouse.warehouse_name
     ).all()
     
-    recent_needs = NeedsList.query.order_by(desc(NeedsList.create_dtime)).limit(5).all()
-    recent_fulfilments = Fulfilment.query.order_by(desc(Fulfilment.create_dtime)).limit(5).all()
+    recent_needs = NeedsList.query.order_by(desc(NeedsList.create_dtime)).limit(50).all()
+    recent_fulfilments = Fulfilment.query.order_by(desc(Fulfilment.create_dtime)).limit(50).all()
     active_events = Event.query.filter_by(status_code='A').order_by(desc(Event.event_start_date)).limit(5).all()
+    
+    submitted_needs = NeedsList.query.filter_by(status='Submitted').order_by(desc(NeedsList.create_dtime)).limit(10).all()
+    awaiting_approval_needs = NeedsList.query.filter_by(status='Awaiting Approval').order_by(desc(NeedsList.create_dtime)).limit(10).all()
+    ready_fulfilments = Fulfilment.query.filter_by(status='Ready').order_by(desc(Fulfilment.create_dtime)).limit(10).all()
     
     needs_by_status = db.session.query(
         NeedsList.status,
@@ -63,18 +73,40 @@ def index():
         func.count(Fulfilment.fulfilment_id).label('count')
     ).group_by(Fulfilment.status).all()
     
-    return render_template('dashboard/index.html',
-        now=datetime.now(),
-        total_items=total_items,
-        total_warehouses=total_warehouses,
-        total_events=total_events,
-        total_users=total_users,
-        total_inventory_value=total_inventory_value,
-        low_stock_items=low_stock_items,
-        warehouse_stock=warehouse_stock,
-        recent_needs=recent_needs,
-        recent_fulfilments=recent_fulfilments,
-        active_events=active_events,
-        needs_by_status=dict(needs_by_status),
-        fulfilment_by_status=dict(fulfilment_by_status)
-    )
+    category_distribution = db.session.query(
+        ItemCateg.catg_desc,
+        func.count(Item.item_id).label('item_count'),
+        func.sum(Inventory.usable_qty).label('total_qty')
+    ).join(Item).join(Inventory).filter(
+        Item.status_code == 'A',
+        Inventory.usable_qty > 0
+    ).group_by(ItemCateg.catg_desc).all()
+    
+    context = {
+        'now': datetime.now(),
+        'total_items': total_items,
+        'total_warehouses': total_warehouses,
+        'total_events': total_events,
+        'total_users': total_users,
+        'total_inventory_value': total_inventory_value,
+        'low_stock_items': low_stock_items,
+        'warehouse_stock': warehouse_stock,
+        'recent_needs': recent_needs,
+        'recent_fulfilments': recent_fulfilments,
+        'active_events': active_events,
+        'needs_by_status': dict(needs_by_status),
+        'fulfilment_by_status': dict(fulfilment_by_status),
+        'category_distribution': category_distribution,
+        'submitted_needs': submitted_needs,
+        'awaiting_approval_needs': awaiting_approval_needs,
+        'ready_fulfilments': ready_fulfilments
+    }
+    
+    if 'Logistics Manager' in user_role_names or 'LOG_MGR' in user_role_codes:
+        return render_template('dashboard/logistics_manager.html', **context)
+    elif 'Logistics Officer' in user_role_names or 'LOG_OFFICER' in user_role_codes:
+        return render_template('dashboard/logistics_officer.html', **context)
+    elif 'Logistics Executive' in user_role_names or 'LOG_EXEC' in user_role_codes:
+        return render_template('dashboard/logistics_executive.html', **context)
+    else:
+        return render_template('dashboard/index.html', **context)
