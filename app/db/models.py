@@ -757,3 +757,47 @@ class ReturnIntakeItem(db.Model):
     
     item = db.relationship('Item', backref='return_intake_items')
     unit_of_measure = db.relationship('UnitOfMeasure')
+
+class AgencyAccountRequest(db.Model):
+    """Agency account creation request with workflow (S=submitted, R=review, A=approved, D=denied)"""
+    __tablename__ = 'agency_account_request'
+    
+    request_id = db.Column(db.Integer, primary_key=True)
+    
+    agency_name = db.Column(db.String(120), nullable=False)
+    contact_name = db.Column(db.String(80), nullable=False)
+    contact_phone = db.Column(db.String(20), nullable=False)
+    contact_email = db.Column(db.String(200), nullable=False)
+    reason_text = db.Column(db.String(255), nullable=False)
+    
+    agency_id = db.Column(db.Integer, db.ForeignKey('agency.agency_id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    status_code = db.Column(db.CHAR(1), nullable=False)
+    status_reason = db.Column(db.String(255))
+    
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    version_nbr = db.Column(db.Integer, nullable=False, default=1)
+    
+    agency = db.relationship('Agency', foreign_keys=[agency_id], backref='account_requests')
+    user = db.relationship('User', foreign_keys=[user_id], backref='account_requests')
+    created_by = db.relationship('User', foreign_keys=[created_by_id], backref='requests_created')
+    updated_by = db.relationship('User', foreign_keys=[updated_by_id], backref='requests_updated')
+
+class AgencyAccountRequestAudit(db.Model):
+    """Immutable audit log for agency account request workflow events"""
+    __tablename__ = 'agency_account_request_audit'
+    
+    audit_id = db.Column(db.Integer, primary_key=True)
+    request_id = db.Column(db.Integer, db.ForeignKey('agency_account_request.request_id'), nullable=False)
+    event_type = db.Column(db.String(24), nullable=False)
+    event_notes = db.Column(db.String(255))
+    actor_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    event_dtime = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    version_nbr = db.Column(db.Integer, nullable=False, default=1)
+    
+    request = db.relationship('AgencyAccountRequest', backref='audit_log')
+    actor = db.relationship('User', foreign_keys=[actor_user_id], backref='audit_actions')
