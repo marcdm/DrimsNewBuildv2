@@ -1,0 +1,216 @@
+You are working in a Flask + SQLite (dev) / Postgres (prod) app called DRIMS.
+Goal: Remove the entire “Needs List / Fulfillment” feature now—both the database objects and all application functionality—without affecting any other workflows.
+
+Scope to remove (table name variants included)
+
+Core: needs_list, needs_list_item, fulfillment, fulfillment_item
+
+Logs & edits: fulfilment_edit_log, fulfillment_edit_log
+
+Change requests: fulfillment_change_request, fulfilment_change_request
+
+Dispatch: dispatch_manifest, dispatch_item, dispatch_note
+
+Summaries/views: fulfillment_summary, needs_list_summary, any views that depend on these
+
+Any object whose name starts with needs_, fulfill_, fulfil_, or dispatch_ and clearly belongs to this feature
+
+Absolutely do not modify other modules (donation, inventory, transfers, agencies, relief packages, etc.).
+
+Step 0 — Backups (mandatory)
+
+SQLite (dev):
+
+cp app.db app.db.bak.$(date +%Y%m%d%H%M%S)
+
+
+Postgres (prod):
+
+pg_dump "$DATABASE_URL" > drims_backup_$(date +%Y%m%d%H%M%S).sql
+
+Step 1 — Discover exact objects to drop
+Postgres (run in psql)
+-- List candidate tables in public schema:
+SELECT tablename
+FROM   pg_tables
+WHERE  schemaname='public'
+AND   (
+         tablename LIKE 'needs\_%' ESCAPE '\'
+      OR tablename LIKE 'fulfill\_%' ESCAPE '\'
+      OR tablename LIKE 'fulfil\_%'  ESCAPE '\'
+      OR tablename LIKE 'dispatch\_%' ESCAPE '\'
+      OR tablename IN (
+           'needs_list','needs_list_item',
+           'fulfillment','fulfillment_item',
+           'fulfillment_change_request','fulfilment_change_request',
+           'fulfillment_edit_log','fulfilment_edit_log',
+           'dispatch_manifest','dispatch_item','dispatch_note',
+           'fulfillment_summary','needs_list_summary'
+         )
+     )
+ORDER BY tablename;
+
+SQLite (run in sqlite3 shell)
+-- List candidate tables:
+SELECT name
+FROM sqlite_master
+WHERE type='table' AND (
+       name LIKE 'needs_%'
+    OR name LIKE 'fulfill_%'
+    OR name LIKE 'fulfil_%'
+    OR name LIKE 'dispatch_%'
+    OR name IN (
+        'needs_list','needs_list_item',
+        'fulfillment','fulfillment_item',
+        'fulfillment_change_request','fulfilment_change_request',
+        'fulfillment_edit_log','fulfilment_edit_log',
+        'dispatch_manifest','dispatch_item','dispatch_note',
+        'fulfillment_summary','needs_list_summary'
+    )
+)
+ORDER BY name;
+
+
+(Review the output to ensure only the needs/fulfillment feature tables are listed.)
+
+Step 2 — Drop DB objects safely
+Postgres — one block, cascades dependencies
+BEGIN;
+
+-- Drop dependent views first (if any):
+DO $$
+DECLARE v RECORD;
+BEGIN
+  FOR v IN
+    SELECT schemaname, viewname
+    FROM pg_views
+    WHERE schemaname='public'
+      AND (viewname LIKE 'needs\_%' ESCAPE '\'
+        OR viewname LIKE 'fulfill\_%' ESCAPE '\'
+        OR viewname LIKE 'fulfil\_%'  ESCAPE '\'
+        OR viewname LIKE 'dispatch\_%' ESCAPE '\'
+        OR viewname IN ('fulfillment_summary','needs_list_summary'))
+  LOOP
+    EXECUTE format('DROP VIEW IF EXISTS %I.%I CASCADE;', v.schemaname, v.viewname);
+  END LOOP;
+END$$;
+
+-- Drop tables (and dependent FKs) by pattern:
+DO $$
+DECLARE t RECORD;
+BEGIN
+  FOR t IN
+    SELECT tablename
+    FROM   pg_tables
+    WHERE  schemaname='public'
+    AND   (
+             tablename LIKE 'needs\_%' ESCAPE '\'
+          OR tablename LIKE 'fulfill\_%' ESCAPE '\'
+          OR tablename LIKE 'fulfil\_%'  ESCAPE '\'
+          OR tablename LIKE 'dispatch\_%' ESCAPE '\'
+          OR tablename IN (
+               'needs_list','needs_list_item',
+               'fulfillment','fulfillment_item',
+               'fulfillment_change_request','fulfilment_change_request',
+               'fulfillment_edit_log','fulfilment_edit_log',
+               'dispatch_manifest','dispatch_item','dispatch_note',
+               'fulfillment_summary','needs_list_summary'
+          )
+        )
+    ORDER BY tablename
+  LOOP
+    EXECUTE format('DROP TABLE IF EXISTS %I CASCADE;', t.tablename);
+  END LOOP;
+END$$;
+
+COMMIT;
+
+SQLite — disable FKs, drop, re-enable
+PRAGMA foreign_keys = OFF;
+BEGIN;
+
+-- Drop tables if present (SQLite has no CASCADE on DROP):
+DROP TABLE IF EXISTS fulfillment_edit_log;
+DROP TABLE IF EXISTS fulfilment_edit_log;
+DROP TABLE IF EXISTS fulfillment_change_request;
+DROP TABLE IF EXISTS fulfilment_change_request;
+DROP TABLE IF EXISTS fulfillment_item;
+DROP TABLE IF EXISTS fulfillment;
+DROP TABLE IF EXISTS dispatch_item;
+DROP TABLE IF EXISTS dispatch_manifest;
+DROP TABLE IF EXISTS dispatch_note;
+DROP TABLE IF EXISTS needs_list_item;
+DROP TABLE IF EXISTS needs_list;
+DROP TABLE IF EXISTS fulfillment_summary;
+DROP TABLE IF EXISTS needs_list_summary;
+
+COMMIT;
+
+-- Sanity check for dangling FK issues (should return zero rows):
+PRAGMA foreign_key_check;
+
+PRAGMA foreign_keys = ON;
+
+
+If you have extra fulfillment/needs prefixed tables beyond the list, add corresponding DROP TABLE IF EXISTS ...; lines before COMMIT;.
+
+Step 3 — Remove application functionality (no other workflows touched)
+
+Feature flag / kill-switch (quick):
+
+Add DISABLE_NEEDS_FULFILLMENT=true to env.
+
+In Flask blueprints and templates, guard all routes/menus with:
+
+if current_app.config.get("DISABLE_NEEDS_FULFILLMENT"):
+    abort(410)  # Gone
+
+
+Hide sidebar/nav links conditionally in templates.
+
+Routes & controllers:
+
+Remove or 410-gate blueprints/endpoints like:
+/needs-lists*, /fulfillment*, /dispatch*, /change-requests*.
+
+Delete view templates and JS bound to those pages.
+
+ORM models / schema bindings:
+
+Delete SQLAlchemy models for the dropped tables.
+
+Remove relationships/backrefs from remaining models that referenced them.
+
+Jobs & signals:
+
+Disable Celery/cron tasks or background jobs referencing these tables.
+
+Remove signal handlers (after_commit hooks, etc.) tied to this feature.
+
+RBAC / permissions:
+
+Remove permissions like needs_list:*, fulfillment:*, dispatch:* from role seeders and checks.
+
+Migrate any default roles that contained those scopes.
+
+UI:
+
+Remove menu items, dashboards, and widgets tied to these features.
+
+Delete CSS/JS modules used only by those pages.
+
+Tests:
+
+Delete or xfail tests under tests/needs_*/, tests/fulfill_*/, tests/dispatch_*/.
+
+Ensure CI passes with the feature removed.
+
+Step 4 — Smoke checks
+
+App starts without import errors.
+
+Sidebar/navigation has no Needs/Fulfillment/Dispatch entries.
+
+No references to the removed models in logs.
+
+Core flows (donation → inventory → transfer → relief package) still pass.
