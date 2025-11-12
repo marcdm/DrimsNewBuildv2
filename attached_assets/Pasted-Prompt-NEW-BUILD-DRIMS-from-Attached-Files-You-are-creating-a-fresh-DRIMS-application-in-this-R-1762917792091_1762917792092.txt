@@ -1,0 +1,266 @@
+Prompt (NEW BUILD – DRIMS from Attached Files)
+
+You are creating a fresh DRIMS application in this Repl using the attached files as the source of truth:
+
+DRIMS_Complete_Schema.sql (full, executable PostgreSQL schema incl. aidmgmt-3.sql + DRIMS extensions; requires citext) 
+
+DRIMS_Complete_Schema
+
+DRIMS_Requirements_Document.md (end-to-end functional + technical requirements, stack, routes, UI) 
+
+DRIMS_Requirements_Document
+
+IMPLEMENTATION_SUMMARY.md (complete package overview: 51 tables, dual workflow architecture, quick path) 
+
+IMPLEMENTATION_SUMMARY
+
+README.md (quick start & integration notes) 
+
+README
+
+Schema_Mapping_Reference.md (definitive table mappings, status codes, FK relationships) 
+
+Schema_Mapping_Reference
+
+0) Goal
+
+Rebuild DRIMS so it runs cleanly from scratch in Replit:
+
+Use PostgreSQL and execute the provided DRIMS_Complete_Schema.sql as the canonical DB (includes both core ODPEM (aidmgmt-3.sql) and DRIMS extensions; total ≈ 51 tables) 
+
+IMPLEMENTATION_SUMMARY
+
+.
+
+Respect schema constraints (audit fields, status codes, DECIMAL qty, UPPERCASE naming, citext extension) 
+
+README
+
+DRIMS_Complete_Schema
+
+.
+
+Implement the dual workflow choice (aidmgmt workflow or DRIMS modern workflow) behind a simple config flag. 
+
+IMPLEMENTATION_SUMMARY
+
+Schema_Mapping_Reference
+
+1) Stack & Project Layout
+
+Use the stack from the requirements: Flask 3 + Flask-SQLAlchemy 2.x, Flask-Login, Jinja2, Bootstrap 5; DB: PostgreSQL 16 (SQLite optional for dev) 
+
+DRIMS_Requirements_Document
+
+.
+Create this structure:
+
+/app
+  /auth          # login, roles, decorators
+  /core          # shared helpers (date, status, formatting)
+  /db            # engine, session, models (split by module)
+  /features
+    /events
+    /warehouse
+    /inventory
+    /donations
+    /requests_aidmgmt   # reliefrqst workflow
+    /requests_drims     # needs_list workflow
+    /fulfilment
+    /dispatch
+    /receipt
+  /ui
+    /templates
+    /static
+app.py
+settings.py
+/scripts
+  init_db.py      # run schema, seed, idempotent
+  seed_demo.py    # seed small working dataset
+requirements.txt
+.replit
+.env.example
+README.repl.md
+
+
+Dependencies (requirements.txt):
+Flask, Flask-SQLAlchemy, Flask-Login, SQLAlchemy, psycopg2-binary, python-dotenv, Jinja2, Werkzeug, pandas (for CSV import if needed). (Versions per the requirements doc.) 
+
+DRIMS_Requirements_Document
+
+2) Database Bootstrap (authoritative schema)
+
+Read DRIMS_Complete_Schema.sql and execute it verbatim against DATABASE_URL (PostgreSQL). Ensure CREATE EXTENSION IF NOT EXISTS citext; runs before dependent DDL. The script already includes extension and constraints—do not ORM-create tables. 
+
+DRIMS_Complete_Schema
+
+Confirm key tables exist (examples): event, warehouse, item, inventory, donation, reliefrqst, reliefpkg, dbintake, and DRIMS extensions like needs_list, fulfilment, dispatch_manifest, user, role. (Full inventory ≈ 51 tables.) 
+
+IMPLEMENTATION_SUMMARY
+
+Enforce schema rules at runtime: audit columns required on insert/update, status codes as CHAR(1) or SMALLINT, item/warehouse/agency/donor names in UPPERCASE, and all quantity fields DECIMAL(12,2). 
+
+README
+
+Create /scripts/init_db.py to connect via psycopg2, run the SQL file, and be safe to rerun (ignore “already exists”). Create /scripts/seed_demo.py to insert a minimal working dataset (one warehouse, one agency, one item, one event, etc.) following constraints. 
+
+README
+
+3) Models & Mappings
+
+Implement SQLAlchemy models matching the schema (no auto-create). Use the mapping reference for names/keys/status codes and the dual workflow mapping table (e.g., Location/Depot/Hub → warehouse; Needs List → reliefrqst in ODPEM workflow; DRIMS modern tables for enhanced UX). 
+
+Schema_Mapping_Reference
+
+
+Honor constraints exactly as defined in DRIMS_Complete_Schema.sql (PK/FK, CHECKs, indexes). 
+
+DRIMS_Complete_Schema
+
+4) Authentication & RBAC
+
+Build user, role, user_role, user_warehouse models and Flask-Login wiring, with route decorators that enforce role + warehouse scoping (as per requirements package). 
+
+IMPLEMENTATION_SUMMARY
+
+5) Configurable Workflows (feature flag)
+
+Implement an app config "WORKFLOW_MODE": "AIDMGMT" | "DRIMS" | "BOTH":
+
+AIDMGMT uses: reliefrqst → reliefpkg → dbintake (official ODPEM flow). 
+
+IMPLEMENTATION_SUMMARY
+
+Schema_Mapping_Reference
+
+DRIMS uses: needs_list → fulfilment → dispatch_manifest → receipt_record (modern UX). 
+
+IMPLEMENTATION_SUMMARY
+
+Schema_Mapping_Reference
+
+BOTH exposes both sets of screens; both share item, warehouse, agency, event. 
+
+IMPLEMENTATION_SUMMARY
+
+6) Routes (initial MVP)
+
+Implement read + minimal write routes that respect DB constraints:
+
+Core
+
+/ home dashboard (role-aware cards/kpis).
+
+/events (list/create; closing an event auto-sets closed_date and status_code per rule). 
+
+DRIMS_Complete_Schema
+
+/warehouses (list/create, active filter).
+
+/items (list/create).
+
+/inventory?warehouse_id= (summaries incl. usable/defective/expired).
+
+AIDMGMT workflow (if enabled)
+
+/requests → reliefrqst list/detail; create; small status transitions with code validation. 
+
+Schema_Mapping_Reference
+
+/packages → reliefpkg + items; dispatch rule consistency; intake via dbintake. 
+
+Schema_Mapping_Reference
+
+DRIMS workflow (if enabled)
+
+/needs-lists → needs_list list/detail; lock/unlock per DRIMS enhanced flow. 
+
+IMPLEMENTATION_SUMMARY
+
+/fulfilment → fulfilment + line items; edit log; multi-warehouse allocation; /dispatch → dispatch_manifest; /receipts → receipt_record. 
+
+IMPLEMENTATION_SUMMARY
+
+Donations & Transfers
+
+/donations (+ items, verification → intake via dnintake tables). 
+
+DRIMS_Complete_Schema
+
+/transfers (+ items; basic create with FK and quantity validations). 
+
+DRIMS_Complete_Schema
+
+All POST/PATCH handlers must populate audit fields (create_by_id, create_dtime, update_by_id, update_dtime, version_nbr) and enforce status code enumerations exactly. 
+
+README
+
+7) UI
+
+Use Jinja2 + Bootstrap 5 (per requirements). Provide accessible, compact dashboards; ensure labels follow naming (e.g., Warehouse not Location). Seed templates for home, events, warehouses, inventory, requests, packages. 
+
+DRIMS_Requirements_Document
+
+8) Environment & Run
+
+.env.example with SECRET_KEY, DATABASE_URL.
+
+.replit to run FLASK_APP=app.py flask run (or python app.py) on port 5000; Replit PostgreSQL module if available. Starter runbook in README.repl.md. 
+
+README
+
+9) Validation Checklist (must pass)
+
+psql -d $DATABASE_URL → \dt shows all expected tables (≈51). 
+
+IMPLEMENTATION_SUMMARY
+
+In app:
+
+Create event; Close sets status_code='C' and closed_date (UI lock on end date). 
+
+DRIMS_Complete_Schema
+
+Create warehouse (UPPERCASE name enforced by UI; status_code ‘A’/’I’). 
+
+DRIMS_Complete_Schema
+
+Add item (SKU/name UPPERCASE; DECIMAL reorder qty). 
+
+DRIMS_Complete_Schema
+
+Create request via chosen workflow and progress status respecting code sets. 
+
+Schema_Mapping_Reference
+
+Create donation → verify → intake with condition quantities. 
+
+DRIMS_Complete_Schema
+
+All inserts/updates include required audit fields; no FK or CHECK violations. 
+
+README
+
+10) Deliverables
+
+/scripts/init_db.py & /scripts/seed_demo.py (idempotent).
+
+/app/db/models/*.py with exact schema mappings and constraints enforced.
+
+/app/features/* blueprints: events, warehouse, inventory, donations, plus requests_aidmgmt and/or requests_drims.
+
+/app/ui/templates/* minimal pages.
+
+README.repl.md with “Upload files → run init_db.py → run app” quick start.
+
+Build everything now, using only the attached files for schema/requirements/mapping, and show me:
+
+The init DB script,
+
+The models for event, warehouse, item, inventory,
+
+The routes for /events and /warehouses,
+
+One workflow list page (/requests for AIDMGMT or /needs-lists for DRIMS),
+
+A screenshot or HTML snippet of the home dashboard cards.
