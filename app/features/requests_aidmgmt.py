@@ -28,8 +28,12 @@ def list_requests():
     # Support both 'filter' and 'status' params for backward compatibility
     status_filter = request.args.get('filter') or request.args.get('status', 'submitted')
     
-    # Base query for current user's agency
-    base_query = ReliefRqst.query.filter_by(agency_id=current_user.agency_id)
+    # Base query for current user's agency with eager loading
+    base_query = ReliefRqst.query.filter_by(agency_id=current_user.agency_id).options(
+        db.joinedload(ReliefRqst.agency),
+        db.joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.default_uom),
+        db.joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.category)
+    )
     
     # Calculate counts for filter tabs
     counts = {
@@ -125,18 +129,26 @@ def create_request():
 @agency_user_required
 def view_request(request_id):
     """View relief request details"""
-    relief_request = ReliefRqst.query.get_or_404(request_id)
+    relief_request = ReliefRqst.query.options(
+        db.joinedload(ReliefRqst.agency),
+        db.joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.default_uom),
+        db.joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.category)
+    ).get(request_id)
+    
+    if not relief_request:
+        abort(404)
     
     # Verify request belongs to current agency
     if relief_request.agency_id != current_user.agency_id:
         flash('You do not have permission to view this request.', 'danger')
         abort(403)
     
-    # Calculate metrics for summary cards
-    total_requested = sum(item.request_qty for item in relief_request.items)
-    fulfilled_count = sum(item.issue_qty or 0 for item in relief_request.items)
-    shortfall_count = total_requested - fulfilled_count
-    fulfillment_rate = int((fulfilled_count / total_requested * 100) if total_requested > 0 else 0)
+    # Calculate metrics for summary cards (using Decimal for consistency)
+    from decimal import Decimal
+    total_requested = sum(item.request_qty for item in relief_request.items) if relief_request.items else Decimal(0)
+    fulfilled_count = sum(item.issue_qty or Decimal(0) for item in relief_request.items) if relief_request.items else Decimal(0)
+    shortfall_count = max(Decimal(0), total_requested - fulfilled_count)  # Prevent negative values
+    fulfillment_rate = int((float(fulfilled_count) / float(total_requested) * 100) if total_requested > 0 else 0)
     
     # Get dispatch and receive dates from packages (if any)
     dispatch_date = None
@@ -191,7 +203,14 @@ def view_request(request_id):
 @agency_user_required
 def edit_request(request_id):
     """Edit relief request header (only for drafts)"""
-    relief_request = ReliefRqst.query.get_or_404(request_id)
+    relief_request = ReliefRqst.query.options(
+        db.joinedload(ReliefRqst.agency),
+        db.joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.default_uom),
+        db.joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.category)
+    ).get(request_id)
+    
+    if not relief_request:
+        abort(404)
     
     # Verify ownership
     if relief_request.agency_id != current_user.agency_id:
@@ -204,9 +223,12 @@ def edit_request(request_id):
         return redirect(url_for('requests.view_request', request_id=request_id))
     
     # Calculate metrics for summary cards
-    allocated_count = sum(1 for item in relief_request.items if item.issue_qty and item.issue_qty >= item.request_qty)
-    partial_count = sum(1 for item in relief_request.items if item.issue_qty and 0 < item.issue_qty < item.request_qty)
-    unallocated_count = sum(1 for item in relief_request.items if not item.issue_qty or item.issue_qty == 0)
+    if relief_request.items:
+        allocated_count = sum(1 for item in relief_request.items if item.issue_qty and item.issue_qty >= item.request_qty)
+        partial_count = sum(1 for item in relief_request.items if item.issue_qty and 0 < item.issue_qty < item.request_qty)
+        unallocated_count = sum(1 for item in relief_request.items if not item.issue_qty or item.issue_qty == 0)
+    else:
+        allocated_count = partial_count = unallocated_count = 0
     
     if request.method == 'POST':
         try:
