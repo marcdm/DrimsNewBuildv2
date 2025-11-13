@@ -48,9 +48,14 @@ Preferred communication style: Simple, everyday language.
     - **New Workflows**: Introduced `agency_account_request` and `agency_account_request_audit` tables for managing agency account creation workflows without altering existing schema.
 
 ### Data Flow Patterns
-- **AIDMGMT Relief Workflow**: Covers Relief Request Creation, Package Preparation, and Distribution & Intake.
+- **AIDMGMT Relief Workflow**: Complete end-to-end workflow covering:
+  1. **Relief Request Creation** (agencies) - Status: DRAFT (0) → AWAITING_APPROVAL (1)
+  2. **Eligibility Review** (ODPEM directors) - Status: AWAITING_APPROVAL (1) → SUBMITTED (3) or INELIGIBLE (8)
+  3. **Package Preparation** (logistics officers/managers) - Status: SUBMITTED (3) → PART_FILLED (5) → FILLED (7)
+  4. **Distribution & Intake** (agencies receive goods)
 - **Inventory Management**: Tracks stock by warehouse and item in the `inventory` table, including `usable_qty`, `reserved_qty`, `defective_qty`, `expired_qty`, with bin-level tracking via the `location` table.
 - **Eligibility Approval Workflow**: Integrated role-based access control (RBAC) with `has_permission` and `@permission_required` decorators. Service layer for eligibility decisions, notifications, and workflow enforcement.
+- **Package Fulfillment Workflow**: LO/LM access "Pending Fulfillment" list showing SUBMITTED (3) and PART_FILLED (5) requests, create relief packages from approved requests with real-time inventory checking.
 
 ## External Dependencies
 

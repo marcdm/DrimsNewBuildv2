@@ -8,8 +8,25 @@ from datetime import datetime, date
 from app.db import db
 from app.db.models import ReliefPkg, ReliefPkgItem, ReliefRqst, ReliefRqstItem, Inventory, Item, Warehouse
 from app.core.audit import add_audit_fields
+from app.services import relief_request_service as rr_service
 
 packages_bp = Blueprint('packages', __name__, url_prefix='/packages')
+
+@packages_bp.route('/pending-fulfillment')
+@login_required
+def pending_fulfillment():
+    """
+    List all approved relief requests awaiting package preparation.
+    Shows SUBMITTED (3) and PART_FILLED (5) requests for LO/LM to fulfill.
+    """
+    # Get eligible requests (approved by ODPEM directors)
+    eligible_requests = ReliefRqst.query.filter(
+        ReliefRqst.status_code.in_([rr_service.STATUS_SUBMITTED, rr_service.STATUS_PART_FILLED])
+    ).order_by(ReliefRqst.reliefrqst_id.desc()).all()
+    
+    return render_template('packages/pending_fulfillment.html',
+                         requests=eligible_requests)
+
 
 @packages_bp.route('/')
 @login_required
@@ -42,8 +59,9 @@ def create_package():
             
             relief_request = ReliefRqst.query.get_or_404(reliefrqst_id)
             
-            if relief_request.status_code not in [2, 3]:
-                flash('Only approved or partially fulfilled requests can be packaged', 'danger')
+            # Only SUBMITTED (3) or PART_FILLED (5) requests can be packaged
+            if relief_request.status_code not in [rr_service.STATUS_SUBMITTED, rr_service.STATUS_PART_FILLED]:
+                flash('Only approved requests (eligible) or partially fulfilled requests can be packaged', 'danger')
                 return redirect(url_for('packages.create_package'))
             
             warehouse_id = int(request.form.get('warehouse_id'))
@@ -152,11 +170,12 @@ def create_package():
     
     if reliefrqst_id:
         selected_request = ReliefRqst.query.filter_by(reliefrqst_id=reliefrqst_id).first()
-        if selected_request and selected_request.status_code in [2, 3]:
+        if selected_request and selected_request.status_code in [rr_service.STATUS_SUBMITTED, rr_service.STATUS_PART_FILLED]:
             request_items = selected_request.items
     
+    # Get eligible requests (SUBMITTED or PART_FILLED)
     approved_requests = ReliefRqst.query.filter(
-        ReliefRqst.status_code.in_([2, 3])
+        ReliefRqst.status_code.in_([rr_service.STATUS_SUBMITTED, rr_service.STATUS_PART_FILLED])
     ).order_by(ReliefRqst.reliefrqst_id.desc()).all()
     
     warehouses = Warehouse.query.filter_by(status_code='A').all()

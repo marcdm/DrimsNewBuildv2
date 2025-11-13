@@ -485,16 +485,20 @@
             <i class="bi bi-file-text"></i>
             <span class="nav-label">All Relief Requests</span>
         </a>
-        <a href="{{ url_for('packages.list_packages') }}" class="nav-item-link {% if active_page == 'packages' %}active{% endif %}">
-            <i class="bi bi-box"></i>
-            <span class="nav-label">Packages</span>
-        </a>
         {% if is_director_level() %}
         <a href="{{ url_for('eligibility.pending_list') }}" class="nav-item-link {% if active_page == 'eligibility' %}active{% endif %}">
             <i class="bi bi-clipboard-check"></i>
             <span class="nav-label">Relief Request Review</span>
         </a>
         {% endif %}
+        <a href="{{ url_for('packages.pending_fulfillment') }}" class="nav-item-link {% if active_page == 'pending_fulfillment' %}active{% endif %}">
+            <i class="bi bi-box-arrow-in-down"></i>
+            <span class="nav-label">Pending Fulfillment</span>
+        </a>
+        <a href="{{ url_for('packages.list_packages') }}" class="nav-item-link {% if active_page == 'packages' %}active{% endif %}">
+            <i class="bi bi-box"></i>
+            <span class="nav-label">Packages</span>
+        </a>
         
         <div class="nav-section-header">Management</div>
         <a href="{{ url_for('events.list_events') }}" class="nav-item-link {% if active_page == 'events' %}active{% endif %}">

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Relief Packages - Pending Fulfillment{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="text-goj-green mb-1"><i class="bi bi-box-seam"></i> Eligible Requests - Pending Fulfillment</h2>
+                    <p class="text-muted mb-0">Relief requests approved by ODPEM and awaiting package preparation</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if requests %}
+    <div class="drims-card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table drims-table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Tracking #</th>
+                            <th>Agency</th>
+                            <th>Event</th>
+                            <th>Request Date</th>
+                            <th>Items</th>
+                            <th>Status</th>
+                            <th>Urgency</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in requests %}
+                        <tr>
+                            <td><strong>{{ req.tracking_no if req.tracking_no else req.reliefrqst_id }}</strong></td>
+                            <td>
+                                {% if req.agency %}
+                                    {{ req.agency.agency_name }}
+                                {% else %}
+                                    <span class="text-muted">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if req.eligible_event %}
+                                    {{ req.eligible_event.event_name }}
+                                {% else %}
+                                    <span class="text-muted">Not specified</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ req.request_date.strftime('%Y-%m-%d') if req.request_date else '-' }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ req.items|length }} item(s)</span>
+                            </td>
+                            <td>
+                                {% if req.status_code == 3 %}
+                                    <span class="badge bg-success">Approved - Awaiting Fulfillment</span>
+                                {% elif req.status_code == 5 %}
+                                    <span class="badge bg-warning text-dark">Partially Fulfilled</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ req.status.status_desc if req.status else 'Unknown' }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if req.urgency_ind == 'C' %}
+                                    <span class="badge bg-danger">Critical</span>
+                                {% elif req.urgency_ind == 'H' %}
+                                    <span class="badge bg-danger">High</span>
+                                {% elif req.urgency_ind == 'M' %}
+                                    <span class="badge bg-warning text-dark">Medium</span>
+                                {% elif req.urgency_ind == 'L' %}
+                                    <span class="badge bg-info text-dark">Low</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('packages.create_package', request_id=req.reliefrqst_id) }}" class="btn btn-sm btn-success">
+                                    <i class="bi bi-box-seam"></i> Prepare Package
+                                </a>
+                                <a href="{{ url_for('requests.view_request', request_id=req.reliefrqst_id) }}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No approved relief requests are currently awaiting package preparation.
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.drims-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.text-goj-green {
+    color: #006838;
+}
+
+.drims-table thead {
+    background-color: #f8f9fa;
+}
+
+.drims-table th {
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}
