@@ -49,6 +49,7 @@ def review_request(request_id):
                          items=items,
                          decision_made=decision_made,
                          can_edit=can_edit,
+                         STATUS_AWAITING_APPROVAL=rr_service.STATUS_AWAITING_APPROVAL,
                          STATUS_INELIGIBLE=rr_service.STATUS_INELIGIBLE,
                          STATUS_SUBMITTED=rr_service.STATUS_SUBMITTED)
 

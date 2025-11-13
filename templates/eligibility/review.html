@@ -75,8 +75,10 @@
                         <tr>
                             <th>Status:</th>
                             <td>
-                                {% if request.status_code == STATUS_SUBMITTED %}
-                                    <span class="badge bg-primary">Submitted - Awaiting Review</span>
+                                {% if request.status_code == STATUS_AWAITING_APPROVAL %}
+                                    <span class="badge bg-warning text-dark">Awaiting Approval</span>
+                                {% elif request.status_code == STATUS_SUBMITTED %}
+                                    <span class="badge bg-primary">Submitted - Approved</span>
                                 {% elif request.status_code == STATUS_INELIGIBLE %}
                                     <span class="badge bg-danger">Ineligible</span>
                                 {% else %}
