@@ -356,7 +356,7 @@ class ReliefRqst(db.Model):
     reliefrqst_id = db.Column(db.Integer, primary_key=True)
     agency_id = db.Column(db.Integer, db.ForeignKey('agency.agency_id'), nullable=False)
     request_date = db.Column(db.Date, nullable=False)
-    tracking_no = db.Column(db.String(7), nullable=False)
+    tracking_no = db.Column(db.String(7), nullable=False, server_default=db.text("upper(substr(replace((gen_random_uuid())::text, '-'::text, ''::text), 1, 7))"))
     eligible_event_id = db.Column(db.Integer, db.ForeignKey('event.event_id'))
     urgency_ind = db.Column(db.CHAR(1), nullable=False)
     rqst_notes_text = db.Column(db.Text)
