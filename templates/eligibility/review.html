@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Eligibility Review - {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}{% endblock %}
+{% block title %}Relief Request Review - {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -10,12 +10,12 @@
                 <i class="bi bi-arrow-left"></i> Back to Pending List
             </a>
             <h2 class="text-goj-green mb-1">
-                <i class="bi bi-clipboard-check"></i> Eligibility Review: 
+                <i class="bi bi-clipboard-check"></i> Relief Request Review: 
                 {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}
             </h2>
             {% if decision_made %}
             <div class="alert alert-warning">
-                <i class="bi bi-info-circle"></i> An eligibility decision has already been made for this request. 
+                <i class="bi bi-info-circle"></i> A decision has already been made for this request. 
                 This page is read-only.
             </div>
             {% endif %}
