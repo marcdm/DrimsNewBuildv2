@@ -1,263 +1,283 @@
 {% extends 'base.html' %}
+{% from 'relief_requests/_status_badge.html' import status_badge %}
+{% from 'relief_requests/_workflow_sidebar.html' import render_workflow_sidebar %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/wcag-accessible.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/relief-requests-ui.css') }}">
 {% endblock %}
 
-{% block title %}Relief Request Review - {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}{% endblock %}
+{% block title %}Review Request - RR-{{ '%06d'|format(request.reliefrqst_id) }}{% endblock %}
 
 {% block content %}
-<!-- Skip to main content link for accessibility -->
-<a href="#main-content" class="skip-link">Skip to main content</a>
+<div class="container-fluid py-4">
+    <!-- Decision Made Banner -->
+    {% if decision_made %}
+    <div class="alert-banner alert-banner-info" role="alert">
+        <i class="bi bi-info-circle-fill"></i>
+        <div class="alert-banner-content">
+            A decision has already been made for this request. This page is read-only.
+        </div>
+    </div>
+    {% endif %}
 
-<div class="container-fluid" >
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb">
-        <ol class="breadcrumb mb-3">
-            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('eligibility.pending_list') }}">Pending Reviews</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Review Request {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}</li>
-        </ol>
-    </nav>
+    <!-- Back Button -->
+    <div class="mb-3">
+        <a href="{{ url_for('eligibility.pending_list') }}" class="btn-back">
+            <i class="bi bi-arrow-left"></i>
+            Back to Pending List
+        </a>
+    </div>
 
-    <div class="row mb-3">
-        <div class="col-12">
-            <a href="{{ url_for('eligibility.pending_list') }}" class="btn btn-secondary mb-2" aria-label="Return to pending reviews list">
-                <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Pending List
-            </a>
-            <h1 class="text-goj-green mb-1 h2">
-                <i class="bi bi-clipboard-check" aria-hidden="true"></i> 
-                <span>Relief Request Review: {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}</span>
-            </h1>
-            {% if decision_made %}
-            <div class="alert alert-warning" role="alert" aria-live="polite">
-                <i class="bi bi-info-circle" aria-hidden="true"></i> A decision has already been made for this request. 
-                This page is read-only.
+    <div class="row">
+        <div class="col-lg-9">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title">
+                    <i class="bi bi-clipboard-check page-title-icon"></i>
+                    <h1 class="page-title-text">
+                        RR-{{ '%06d'|format(request.reliefrqst_id) }}
+                    </h1>
+                    <span class="page-title-badge">
+                        {% if request.status_code == STATUS_INELIGIBLE %}
+                        {{ status_badge('ineligible') }}
+                        {% elif request.status_code == STATUS_SUBMITTED %}
+                        {{ status_badge('submitted') }}
+                        {% elif request.status_code == STATUS_AWAITING_APPROVAL %}
+                        {{ status_badge('awaiting-approval', 'Awaiting Approval') }}
+                        {% else %}
+                        {{ status_badge(request.status_code) }}
+                        {% endif %}
+                    </span>
+                </div>
+                <p class="page-subtitle">
+                    {{ request.agency.agency_name if request.agency else 'Unknown Agency' }}
+                    {% if request.agency and request.agency.contact_name %}
+                    <span class="text-muted">({{ request.agency.contact_name }})</span>
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Request Information Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Request Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <small class="text-muted">Agency:</small><br>
+                            <strong>{{ request.agency.agency_name if request.agency else 'Unknown' }}</strong>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <small class="text-muted">Event:</small><br>
+                            <strong>{{ request.eligible_event.event_name if request.eligible_event else 'Not specified' }}</strong>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <small class="text-muted">Request Date:</small><br>
+                            <strong>{{ request.request_date.strftime('%Y-%m-%d') if request.request_date else 'N/A' }}</strong>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <small class="text-muted">Priority:</small><br>
+                            {% if request.urgency_ind == 'C' or request.urgency_ind == 'H' %}
+                            {{ status_badge('high', 'High') }}
+                            {% elif request.urgency_ind == 'M' %}
+                            {{ status_badge('medium', 'Medium') }}
+                            {% elif request.urgency_ind == 'L' %}
+                            {{ status_badge('low', 'Low') }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </div>
+                        {% if request.rqst_notes_text %}
+                        <div class="col-12">
+                            <small class="text-muted">Request Notes:</small><br>
+                            <p class="mb-0">{{ request.rqst_notes_text }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requested Items -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-box-seam"></i> Requested Items</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if items %}
+                    <table class="relief-requests-table mb-0" role="table" aria-label="Requested relief items">
+                        <thead>
+                            <tr>
+                                <th scope="col">Item</th>
+                                <th scope="col">Quantity</th>
+                                <th scope="col">Priority</th>
+                                <th scope="col">Justification</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>
+                                    <strong>{{ item.item.item_name if item.item else 'Unknown Item' }}</strong>
+                                    {% if item.item and item.item.sku_code %}
+                                    <div class="table-sku">SKU: {{ item.item.sku_code }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ item.request_qty }}</strong>
+                                    {{ item.item.default_uom.uom_desc if (item.item and item.item.default_uom) else '' }}
+                                </td>
+                                <td>
+                                    {% if item.urgency_ind == 'C' or item.urgency_ind == 'H' %}
+                                    {{ status_badge('high', 'High') }}
+                                    {% elif item.urgency_ind == 'M' %}
+                                    {{ status_badge('medium', 'Medium') }}
+                                    {% elif item.urgency_ind == 'L' %}
+                                    {{ status_badge('low', 'Low') }}
+                                    {% else %}
+                                    <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ item.rqst_reason_desc if item.rqst_reason_desc else 'No justification provided' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Eligibility Decision Form -->
+            {% if can_edit and not decision_made %}
+            <div class="card mb-4">
+                <div class="card-header" style="background: #ffc107; color: #212529;">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Eligibility Decision</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('eligibility.submit_decision', request_id=request.reliefrqst_id) }}" id="eligibilityForm">
+                        <fieldset>
+                            <legend class="form-label fw-bold">Is this request eligible for relief?</legend>
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="decision" id="decisionYes" value="Y" checked>
+                                    <label class="form-check-label" for="decisionYes">
+                                        <strong>Yes - Eligible</strong>
+                                        <small class="text-muted d-block">This request meets eligibility criteria and can proceed to fulfillment</small>
+                                    </label>
+                                </div>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="radio" name="decision" id="decisionNo" value="N">
+                                    <label class="form-check-label" for="decisionNo">
+                                        <strong>No - Ineligible</strong>
+                                        <small class="text-muted d-block">This request does not meet eligibility criteria</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <div class="mb-4" id="reasonContainer" style="display: none;">
+                            <label for="reason" class="form-label fw-bold">
+                                Reason for Ineligibility <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="reason" name="reason" rows="4" 
+                                      placeholder="Please provide a detailed reason why this request is ineligible..."></textarea>
+                            <small class="text-muted">This reason will be communicated to the requesting agency</small>
+                            <div class="invalid-feedback" role="alert">
+                                Please provide a reason for marking this request as ineligible.
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn-relief-primary" id="submitBtn">
+                                <i class="bi bi-check-circle"></i> Confirm Decision
+                            </button>
+                            <a href="{{ url_for('eligibility.pending_list') }}" class="btn-relief-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% elif decision_made %}
+            <!-- Show decision details (read-only) -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Eligibility Decision (Read-Only)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small class="text-muted">Decision:</small><br>
+                        {% if request.status_code == STATUS_INELIGIBLE %}
+                        {{ status_badge('ineligible') }}
+                        {% else %}
+                        <span class="status-badge status-badge-completed">Approved</span>
+                        {% endif %}
+                    </div>
+                    {% if request.status_reason_desc %}
+                    <div class="mb-2">
+                        <small class="text-muted">Reason:</small><br>
+                        {{ request.status_reason_desc }}
+                    </div>
+                    {% endif %}
+                    {% if request.review_by_id %}
+                    <div class="mb-2">
+                        <small class="text-muted">Reviewed By:</small><br>
+                        {{ request.review_by_id }}
+                    </div>
+                    {% endif %}
+                    {% if request.review_dtime %}
+                    <div>
+                        <small class="text-muted">Review Date:</small><br>
+                        {{ request.review_dtime.strftime('%Y-%m-%d %H:%M') }}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             {% endif %}
         </div>
-    </div>
 
-    <!-- Flash Messages with ARIA live region -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div aria-live="polite" aria-atomic="true">
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close alert"></button>
-          </div>
-        {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
-
-    <!-- Request Information -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <section class="card drims-card" aria-labelledby="request-info-heading">
-                <div class="card-header">
-                    <h2 class="mb-0 h5" id="request-info-heading">
-                        <i class="bi bi-info-circle" aria-hidden="true"></i> Request Information
-                    </h2>
+        <!-- Workflow Sidebar -->
+        <div class="col-lg-3">
+            {% set workflow_steps = [
+                {'number': 1, 'title': 'Agency Submits', 'description': 'Request received', 'completed': True},
+                {'number': 2, 'title': 'ODPEM Review', 'description': 'Eligibility evaluation', 'completed': decision_made},
+                {'number': 3, 'title': 'Decision Made', 'description': 'Approve or deny', 'completed': decision_made},
+                {'number': 4, 'title': 'Next Steps', 'description': 'Package fulfillment', 'completed': False}
+            ] %}
+            {{ render_workflow_sidebar(2 if not decision_made else 3, workflow_steps, completed=decision_made) }}
+            
+            <!-- Details Section -->
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Summary</h6>
                 </div>
                 <div class="card-body">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-5">Tracking Number:</dt>
-                        <dd class="col-sm-7"><strong>{{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}</strong></dd>
-                        
-                        <dt class="col-sm-5">Agency:</dt>
-                        <dd class="col-sm-7">{{ request.agency.agency_name if request.agency else 'Unknown' }}</dd>
-                        
-                        <dt class="col-sm-5">Event:</dt>
-                        <dd class="col-sm-7">{{ request.eligible_event.event_name if request.eligible_event else 'Not specified' }}</dd>
-                        
-                        <dt class="col-sm-5">Request Date:</dt>
-                        <dd class="col-sm-7"><time datetime="{{ request.request_date.isoformat() if request.request_date else '' }}">{{ request.request_date.strftime('%Y-%m-%d') if request.request_date else '-' }}</time></dd>
-                        
-                        <dt class="col-sm-5">Urgency:</dt>
-                        <dd class="col-sm-7">
-                            {% if request.urgency_ind == 'C' %}
-                                <span class="badge badge-danger-accessible" aria-label="Urgency level: Critical">Critical</span>
-                            {% elif request.urgency_ind == 'H' %}
-                                <span class="badge badge-danger-accessible" aria-label="Urgency level: High">High</span>
-                            {% elif request.urgency_ind == 'M' %}
-                                <span class="badge badge-warning-accessible" aria-label="Urgency level: Medium">Medium</span>
-                            {% elif request.urgency_ind == 'L' %}
-                                <span class="badge badge-info-accessible" aria-label="Urgency level: Low">Low</span>
-                            {% endif %}
-                        </dd>
-                        
-                        <dt class="col-sm-5">Status:</dt>
-                        <dd class="col-sm-7">
-                            {% if request.status_code == STATUS_AWAITING_APPROVAL %}
-                                <span class="badge badge-warning-accessible" aria-label="Status: Awaiting Approval">Awaiting Approval</span>
-                            {% elif request.status_code == STATUS_SUBMITTED %}
-                                <span class="badge badge-primary-accessible" aria-label="Status: Submitted and Approved">Submitted - Approved</span>
-                            {% elif request.status_code == STATUS_INELIGIBLE %}
-                                <span class="badge badge-danger-accessible" aria-label="Status: Ineligible">Ineligible</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{{ request.status.status_desc if request.status else 'Unknown' }}</span>
-                            {% endif %}
-                        </dd>
-                    </dl>
-                </div>
-            </section>
-        </div>
-        
-        <div class="col-md-6">
-            <section class="card drims-card" aria-labelledby="request-notes-heading">
-                <div class="card-header">
-                    <h2 class="mb-0 h5" id="request-notes-heading">
-                        <i class="bi bi-chat-text" aria-hidden="true"></i> Request Notes
-                    </h2>
-                </div>
-                <div class="card-body">
-                    {% if request.rqst_notes_text %}
-                        <p>{{ request.rqst_notes_text }}</p>
-                    {% else %}
-                        <p class="text-muted">No notes provided by agency</p>
+                    <div class="mb-2">
+                        <small class="text-muted">Total Items:</small><br>
+                        <strong>{{ items|length if items else 0 }}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">Status:</small><br>
+                        {% if request.status_code == STATUS_INELIGIBLE %}
+                        {{ status_badge('ineligible') }}
+                        {% elif request.status_code == STATUS_SUBMITTED %}
+                        {{ status_badge('submitted') }}
+                        {% elif request.status_code == STATUS_AWAITING_APPROVAL %}
+                        {{ status_badge('awaiting-approval', 'Awaiting Approval') }}
+                        {% endif %}
+                    </div>
+                    {% if request.create_dtime %}
+                    <div>
+                        <small class="text-muted">Created:</small><br>
+                        {{ request.create_dtime.strftime('%Y-%m-%d %H:%M') }}
+                    </div>
                     {% endif %}
                 </div>
-            </section>
-        </div>
-    </div>
-
-    <!-- Requested Items -->
-    <section class="card drims-card mb-4" aria-labelledby="requested-items-heading">
-        <div class="card-header">
-            <h2 class="mb-0 h5" id="requested-items-heading">
-                <i class="bi bi-box-seam" aria-hidden="true"></i> Requested Items
-            </h2>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table drims-table mb-0" aria-label="List of requested relief items">
-                    <caption class="visually-hidden">Relief items requested in this application, showing item names, quantities, urgency levels, and justifications</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Item</th>
-                            <th scope="col" class="text-end">Requested Quantity</th>
-                            <th scope="col">Urgency</th>
-                            <th scope="col">Reason/Justification</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in items %}
-                        <tr>
-                            <td>{{ item.item.item_name if item.item else 'Unknown Item' }}</td>
-                            <td class="text-end">{{ item.request_qty }}</td>
-                            <td>
-                                {% if item.urgency_ind == 'C' %}
-                                    <span class="badge badge-danger-accessible" aria-label="Item urgency: Critical">Critical</span>
-                                {% elif item.urgency_ind == 'H' %}
-                                    <span class="badge badge-danger-accessible" aria-label="Item urgency: High">High</span>
-                                {% elif item.urgency_ind == 'M' %}
-                                    <span class="badge badge-warning-accessible" aria-label="Item urgency: Medium">Medium</span>
-                                {% elif item.urgency_ind == 'L' %}
-                                    <span class="badge badge-info-accessible" aria-label="Item urgency: Low">Low</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ item.rqst_reason_desc if item.rqst_reason_desc else 'No justification provided' }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
         </div>
-    </section>
-
-    <!-- Eligibility Decision Form -->
-    {% if can_edit and not decision_made %}
-    <section class="card drims-card mb-4" aria-labelledby="decision-form-heading">
-        <div class="card-header bg-warning-accessible">
-            <h2 class="mb-0 h5" id="decision-form-heading">
-                <i class="bi bi-clipboard-check" aria-hidden="true"></i> Eligibility Decision
-            </h2>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('eligibility.submit_decision', request_id=request.reliefrqst_id) }}" id="eligibilityForm" novalidate>
-                <fieldset>
-                    <legend class="form-label fw-bold">Is this request eligible for relief?</legend>
-                    <div class="mb-4">
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="decision" id="decisionYes" value="Y" checked aria-describedby="decisionYesHelp">
-                            <label class="form-check-label" for="decisionYes">
-                                <strong>Yes - Eligible</strong>
-                                <small class="text-muted d-block" id="decisionYesHelp">This request meets eligibility criteria and can proceed to fulfillment</small>
-                            </label>
-                        </div>
-                        <div class="form-check mt-2">
-                            <input class="form-check-input" type="radio" name="decision" id="decisionNo" value="N" aria-describedby="decisionNoHelp">
-                            <label class="form-check-label" for="decisionNo">
-                                <strong>No - Ineligible</strong>
-                                <small class="text-muted d-block" id="decisionNoHelp">This request does not meet eligibility criteria</small>
-                            </label>
-                        </div>
-                    </div>
-                </fieldset>
-
-                <div class="mb-4" id="reasonContainer" style="display: none;">
-                    <label for="reason" class="form-label fw-bold">
-                        Reason for Ineligibility <span class="text-danger" aria-label="required">*</span>
-                    </label>
-                    <textarea class="form-control" id="reason" name="reason" rows="4" 
-                              placeholder="Please provide a detailed reason why this request is ineligible..."
-                              aria-required="false" aria-describedby="reasonHelp"></textarea>
-                    <small class="text-muted" id="reasonHelp">This reason will be communicated to the requesting agency</small>
-                    <div class="invalid-feedback" role="alert" aria-live="polite">
-                        Please provide a reason for marking this request as ineligible.
-                    </div>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-warning-accessible" id="submitBtn" aria-label="Submit eligibility decision">
-                        <i class="bi bi-check-circle" aria-hidden="true"></i> Confirm Decision
-                    </button>
-                    <a href="{{ url_for('eligibility.pending_list') }}" class="btn btn-secondary" aria-label="Cancel and return to pending list">
-                        <i class="bi bi-x-circle" aria-hidden="true"></i> Cancel
-                    </a>
-                </div>
-            </form>
-        </div>
-    </section>
-    {% elif decision_made %}
-    <!-- Show decision details (read-only) -->
-    <section class="card drims-card mb-4" aria-labelledby="decision-readonly-heading">
-        <div class="card-header bg-secondary text-white">
-            <h2 class="mb-0 h5" id="decision-readonly-heading">
-                <i class="bi bi-info-circle" aria-hidden="true"></i> Eligibility Decision (Read-Only)
-            </h2>
-        </div>
-        <div class="card-body">
-            <dl class="row mb-0">
-                <dt class="col-sm-3">Decision:</dt>
-                <dd class="col-sm-9">
-                    {% if request.status_code == STATUS_INELIGIBLE %}
-                        <span class="badge badge-danger-accessible" aria-label="Decision: Ineligible">Ineligible</span>
-                    {% else %}
-                        <span class="badge badge-success-accessible" aria-label="Decision: Eligible">Eligible</span>
-                    {% endif %}
-                </dd>
-                
-                {% if request.status_reason_desc %}
-                <dt class="col-sm-3">Reason:</dt>
-                <dd class="col-sm-9">{{ request.status_reason_desc }}</dd>
-                {% endif %}
-                
-                {% if request.review_by_id %}
-                <dt class="col-sm-3">Reviewed By:</dt>
-                <dd class="col-sm-9">{{ request.review_by_id }}</dd>
-                {% endif %}
-                
-                {% if request.review_dtime %}
-                <dt class="col-sm-3">Review Date:</dt>
-                <dd class="col-sm-9"><time datetime="{{ request.review_dtime.isoformat() }}">{{ request.review_dtime.strftime('%Y-%m-%d %H:%M') }}</time></dd>
-                {% endif %}
-            </dl>
-        </div>
-    </section>
-    {% endif %}
+    </div>
 </div>
 
 <script>
@@ -270,18 +290,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const reasonContainer = document.getElementById('reasonContainer');
     const reasonField = document.getElementById('reason');
     
-    // Show/hide reason field based on decision
     function updateReasonVisibility() {
         if (decisionNo.checked) {
             reasonContainer.style.display = 'block';
             reasonField.required = true;
-            reasonField.setAttribute('aria-required', 'true');
-            // Set focus to reason field for better accessibility
             setTimeout(() => reasonField.focus(), 100);
         } else {
             reasonContainer.style.display = 'none';
             reasonField.required = false;
-            reasonField.setAttribute('aria-required', 'false');
             reasonField.value = '';
             reasonField.classList.remove('is-invalid');
         }
@@ -290,41 +306,21 @@ document.addEventListener('DOMContentLoaded', function() {
     decisionYes.addEventListener('change', updateReasonVisibility);
     decisionNo.addEventListener('change', updateReasonVisibility);
     
-    // Form validation with accessibility
     form.addEventListener('submit', function(e) {
-        let isValid = true;
-        
         if (decisionNo.checked && !reasonField.value.trim()) {
             e.preventDefault();
-            isValid = false;
             reasonField.classList.add('is-invalid');
             reasonField.focus();
-            
-            // Announce error to screen readers
-            const errorMsg = reasonField.nextElementSibling.nextElementSibling;
-            if (errorMsg) {
-                errorMsg.setAttribute('role', 'alert');
-            }
-            return false;
-        } else {
-            reasonField.classList.remove('is-invalid');
-        }
-        
-        if (!isValid) {
             return false;
         }
         
-        // Confirm decision
         const decision = decisionNo.checked ? 'INELIGIBLE' : 'ELIGIBLE';
-        const confirmMsg = `Are you sure you want to mark this request as ${decision}?`;
-        
-        if (!confirm(confirmMsg)) {
+        if (!confirm(`Are you sure you want to mark this request as ${decision}?`)) {
             e.preventDefault();
             return false;
         }
     });
     
-    // Real-time validation for better UX
     if (reasonField) {
         reasonField.addEventListener('blur', function() {
             if (decisionNo.checked && !reasonField.value.trim()) {
@@ -336,6 +332,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-
 
 {% endblock %}

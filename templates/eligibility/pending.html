@@ -1,168 +1,113 @@
 {% extends 'base.html' %}
+{% from 'relief_requests/_status_badge.html' import status_badge %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/wcag-accessible.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/relief-requests-ui.css') }}">
 {% endblock %}
 
-{% block title %}Relief Request Review - Pending Requests{% endblock %}
+{% block title %}Relief Requests Pending Review{% endblock %}
 
 {% block content %}
-<!-- Skip to main content link for accessibility -->
-<a href="#main-content" class="skip-link">Skip to main content</a>
-
-<div class="container-fluid" >
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb">
-        <ol class="breadcrumb mb-3">
-            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Pending Reviews</li>
-        </ol>
-    </nav>
-
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="text-goj-green mb-1 h2">
-                        <i class="bi bi-clipboard-check" aria-hidden="true"></i> 
-                        <span>Relief Requests Pending Review</span>
-                    </h1>
-                    <p class="text-muted mb-0">Review and approve/deny relief requests from agencies</p>
-                </div>
-            </div>
-        </div>
+<div class="container-fluid py-4">
+    <!-- Back Button -->
+    <div class="mb-3">
+        <a href="{{ url_for('index') }}" class="btn-back">
+            <i class="bi bi-arrow-left"></i>
+            Back to Dashboard
+        </a>
     </div>
 
-    <!-- Flash Messages with ARIA live region -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div aria-live="polite" aria-atomic="true">
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close alert"></button>
-          </div>
-        {% endfor %}
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-title">
+            <i class="bi bi-clipboard-check page-title-icon"></i>
+            <h1 class="page-title-text">Relief Requests Pending Review</h1>
         </div>
-      {% endif %}
-    {% endwith %}
+        <p class="page-subtitle">Review and approve/deny relief requests from agencies</p>
+    </div>
 
+    <!-- Requests Table -->
     {% if requests %}
-    <section class="drims-card" aria-labelledby="pending-requests-heading">
-        <div class="visually-hidden">
-            <h2 id="pending-requests-heading">List of pending relief requests</h2>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table drims-table table-hover mb-0" aria-label="Pending relief requests awaiting eligibility review">
-                    <caption class="visually-hidden">
-                        Table showing relief requests that are pending eligibility review, including tracking numbers, agencies, disaster events, request dates, number of items, urgency levels, and available actions. Total: {{ requests|length }} request{{ 's' if requests|length != 1 else '' }}
-                    </caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Tracking #</th>
-                            <th scope="col">Agency</th>
-                            <th scope="col">Event</th>
-                            <th scope="col">Request Date</th>
-                            <th scope="col">Items</th>
-                            <th scope="col">Urgency</th>
-                            <th scope="col">Notes</th>
-                            <th scope="col" class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for request in requests %}
-                        <tr>
-                            <td data-label="Tracking #"><strong>{{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}</strong></td>
-                            <td data-label="Agency">
-                                {% if request.agency %}
-                                    {{ request.agency.agency_name }}
-                                {% else %}
-                                    <span class="text-muted">Unknown</span>
-                                {% endif %}
-                            </td>
-                            <td data-label="Event">
-                                {% if request.eligible_event %}
-                                    {{ request.eligible_event.event_name }}
-                                {% else %}
-                                    <span class="text-muted">Not specified</span>
-                                {% endif %}
-                            </td>
-                            <td data-label="Request Date">
-                                <time datetime="{{ request.request_date.isoformat() if request.request_date else '' }}">
-                                    {{ request.request_date.strftime('%Y-%m-%d') if request.request_date else '-' }}
-                                </time>
-                            </td>
-                            <td data-label="Items">
-                                <span class="badge bg-secondary" aria-label="{{ request.items|length }} items requested">
-                                    {{ request.items|length }} item{{ 's' if request.items|length != 1 else '' }}
-                                </span>
-                            </td>
-                            <td data-label="Urgency">
-                                {% if request.urgency_ind == 'C' %}
-                                    <span class="badge badge-danger-accessible" aria-label="Urgency level: Critical">Critical</span>
-                                {% elif request.urgency_ind == 'H' %}
-                                    <span class="badge badge-danger-accessible" aria-label="Urgency level: High">High</span>
-                                {% elif request.urgency_ind == 'M' %}
-                                    <span class="badge badge-warning-accessible" aria-label="Urgency level: Medium">Medium</span>
-                                {% elif request.urgency_ind == 'L' %}
-                                    <span class="badge badge-info-accessible" aria-label="Urgency level: Low">Low</span>
-                                {% else %}
-                                    <span class="badge bg-light text-dark" aria-label="Urgency level: Unknown">Unknown</span>
-                                {% endif %}
-                            </td>
-                            <td data-label="Notes">
-                                {% if request.rqst_notes_text %}
-                                    <button type="button" class="btn btn-link btn-sm p-0" 
-                                            data-bs-toggle="tooltip" 
-                                            data-bs-placement="top" 
-                                            title="{{ request.rqst_notes_text[:200] }}"
-                                            aria-label="View notes for request {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }}">
-                                        <i class="bi bi-file-text text-info" aria-hidden="true"></i>
-                                        <span class="visually-hidden">View notes</span>
-                                    </button>
-                                {% else %}
-                                    <span class="text-muted" aria-label="No notes available">-</span>
-                                {% endif %}
-                            </td>
-                            <td data-label="Actions" class="text-end">
-                                <a href="{{ url_for('eligibility.review_request', request_id=request.reliefrqst_id) }}" 
-                                   class="btn btn-sm btn-warning-accessible"
-                                   aria-label="Review request {{ request.tracking_no if request.tracking_no else request.reliefrqst_id }} from {{ request.agency.agency_name if request.agency else 'Unknown agency' }}">
-                                    <i class="bi bi-clipboard-check" aria-hidden="true"></i> Review
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
+    <table class="relief-requests-table" role="table" aria-label="Pending relief requests awaiting eligibility review">
+        <thead>
+            <tr>
+                <th scope="col">Request Number</th>
+                <th scope="col">Requesting Agency</th>
+                <th scope="col">Event</th>
+                <th scope="col">Priority</th>
+                <th scope="col">Items</th>
+                <th scope="col">Submitted</th>
+                <th scope="col">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in requests %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('eligibility.review_request', request_id=req.reliefrqst_id) }}" 
+                       class="table-link"
+                       aria-label="View request RR-{{ '%06d'|format(req.reliefrqst_id) }}">
+                        RR-{{ '%06d'|format(req.reliefrqst_id) }}
+                    </a>
+                </td>
+                <td>
+                    {{ req.agency.agency_name if req.agency else 'Unknown' }}
+                    {% if req.agency and req.agency.contact_name %}
+                    <div class="table-sku">{{ req.agency.contact_name }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if req.eligible_event %}
+                    {{ req.eligible_event.event_name }}
+                    {% else %}
+                    <span class="text-muted">Not specified</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if req.urgency_ind == 'C' or req.urgency_ind == 'H' %}
+                    {{ status_badge('high', 'High') }}
+                    {% elif req.urgency_ind == 'M' %}
+                    {{ status_badge('medium', 'Medium') }}
+                    {% elif req.urgency_ind == 'L' %}
+                    {{ status_badge('low', 'Low') }}
+                    {% else %}
+                    <span class="text-muted">N/A</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <strong>{{ req.items|length if req.items else 0 }}</strong> items
+                </td>
+                <td>
+                    {% if req.request_date %}
+                    {{ req.request_date.strftime('%Y-%m-%d') }}
+                    {% else %}
+                    <span class="text-muted">N/A</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('eligibility.review_request', request_id=req.reliefrqst_id) }}" 
+                       class="btn-relief-primary btn-sm"
+                       aria-label="Review request RR-{{ '%06d'|format(req.reliefrqst_id) }}">
+                        <i class="bi bi-clipboard-check"></i>
+                        Review
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
     
-    <!-- Summary information for screen readers and visibility -->
-    <div class="mt-3" aria-live="polite">
+    <!-- Summary -->
+    <div class="mt-3">
         <p class="text-muted">
-            <strong>{{ requests|length }}</strong> relief request{{ 's' if requests|length != 1 else '' }} pending review
+            <strong>{{ requests|length }}</strong> request{{ 's' if requests|length != 1 else '' }} pending review
         </p>
     </div>
     {% else %}
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle" aria-hidden="true"></i> 
-        <span>No relief requests are currently pending eligibility review.</span>
+    <div class="text-center py-5">
+        <i class="bi bi-inbox" style="font-size: 3rem; color: #6c757d;"></i>
+        <p class="mt-3 text-muted">No relief requests are currently pending eligibility review.</p>
     </div>
     {% endif %}
 </div>
-
-<script>
-// Initialize Bootstrap tooltips for accessibility
-document.addEventListener('DOMContentLoaded', function() {
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
-</script>
-
-
 {% endblock %}

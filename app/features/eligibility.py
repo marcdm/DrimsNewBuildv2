@@ -20,7 +20,23 @@ def pending_list():
     List all relief requests pending eligibility review.
     Only accessible to users with reliefrqst.approve_eligibility permission.
     """
-    pending_requests = rr_service.get_pending_eligibility_requests()
+    from app.db.models import ReliefRqst
+    from sqlalchemy.orm import joinedload
+    
+    # Get pending requests with eager loading to prevent N+1 queries
+    pending_requests = ReliefRqst.query.filter_by(
+        status_code=rr_service.STATUS_AWAITING_APPROVAL
+    ).filter(
+        ReliefRqst.review_by_id.is_(None)
+    ).options(
+        joinedload(ReliefRqst.agency),
+        joinedload(ReliefRqst.items).joinedload('item').joinedload('default_uom'),
+        joinedload(ReliefRqst.items).joinedload('item').joinedload('category'),
+        joinedload(ReliefRqst.eligible_event)
+    ).order_by(
+        ReliefRqst.request_date.asc(),
+        ReliefRqst.urgency_ind.desc()
+    ).all()
     
     return render_template('eligibility/pending.html',
                          requests=pending_requests)
@@ -33,20 +49,34 @@ def review_request(request_id):
     """
     View full details of a relief request for eligibility review.
     """
-    eligibility_data = rr_service.get_request_eligibility_details(request_id)
+    from app.db.models import ReliefRqst
+    from sqlalchemy.orm import joinedload
+    from flask import abort
     
-    if not eligibility_data:
+    # Get request with eager loading to prevent N+1 queries
+    relief_request = ReliefRqst.query.options(
+        joinedload(ReliefRqst.agency),
+        joinedload(ReliefRqst.items).joinedload('item').joinedload('default_uom'),
+        joinedload(ReliefRqst.items).joinedload('item').joinedload('category'),
+        joinedload(ReliefRqst.eligible_event),
+        joinedload(ReliefRqst.status)
+    ).get(request_id)
+    
+    if not relief_request:
         flash('Relief request not found.', 'danger')
         return redirect(url_for('eligibility.pending_list'))
     
-    relief_request = eligibility_data['request']
-    items = eligibility_data['items']
-    decision_made = eligibility_data['decision_made']
-    can_edit = eligibility_data['can_edit']
+    # Check if eligibility decision has been made
+    decision_made = (
+        relief_request.review_by_id is not None or
+        relief_request.status_code in [rr_service.STATUS_INELIGIBLE, rr_service.STATUS_DENIED]
+    )
+    
+    can_edit = not decision_made and relief_request.status_code == rr_service.STATUS_AWAITING_APPROVAL
     
     return render_template('eligibility/review.html',
                          request=relief_request,
-                         items=items,
+                         items=relief_request.items,
                          decision_made=decision_made,
                          can_edit=can_edit,
                          STATUS_AWAITING_APPROVAL=rr_service.STATUS_AWAITING_APPROVAL,
