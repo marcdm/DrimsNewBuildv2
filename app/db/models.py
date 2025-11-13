@@ -43,8 +43,16 @@ class User(UserMixin, db.Model):
     status_code = db.Column(db.CHAR(1), nullable=False, default='A')
     version_nbr = db.Column(db.Integer, nullable=False, default=1)
     
-    roles = db.relationship('Role', secondary='user_role', back_populates='users')
-    warehouses = db.relationship('Warehouse', secondary='user_warehouse', back_populates='users')
+    roles = db.relationship('Role', 
+                           secondary='user_role', 
+                           primaryjoin='User.user_id==UserRole.user_id',
+                           secondaryjoin='Role.id==UserRole.role_id',
+                           back_populates='users')
+    warehouses = db.relationship('Warehouse', 
+                                secondary='user_warehouse', 
+                                primaryjoin='User.user_id==UserWarehouse.user_id',
+                                secondaryjoin='Warehouse.warehouse_id==UserWarehouse.warehouse_id',
+                                back_populates='users')
     agency = db.relationship('Agency', foreign_keys=[agency_id], backref='users')
     
     def get_id(self):
@@ -61,7 +69,11 @@ class Role(db.Model):
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    users = db.relationship('User', secondary='user_role', back_populates='roles')
+    users = db.relationship('User', 
+                           secondary='user_role',
+                           primaryjoin='Role.id==UserRole.role_id',
+                           secondaryjoin='User.user_id==UserRole.user_id',
+                           back_populates='roles')
 
 class UserRole(db.Model):
     """User-Role assignment (many-to-many)"""
@@ -147,7 +159,11 @@ class Warehouse(db.Model):
     
     parish = db.relationship('Parish', backref='warehouses')
     custodian = db.relationship('Custodian', backref='warehouses')
-    users = db.relationship('User', secondary='user_warehouse', back_populates='warehouses')
+    users = db.relationship('User', 
+                           secondary='user_warehouse',
+                           primaryjoin='Warehouse.warehouse_id==UserWarehouse.warehouse_id',
+                           secondaryjoin='User.user_id==UserWarehouse.user_id',
+                           back_populates='warehouses')
 
 class Agency(db.Model):
     """Agency (Request-only locations)"""
