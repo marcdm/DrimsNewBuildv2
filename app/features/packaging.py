@@ -204,9 +204,8 @@ def _submit_for_approval(relief_request):
     try:
         _process_allocations(relief_request, validate_complete=False)
         
-        relief_request.action_by_id = current_user.email[:20]
-        relief_request.action_dtime = datetime.now()
-        relief_request.version_nbr += 1
+        # Don't update relief_request action fields - they're for package dispatch
+        # LO is just preparing allocations, not taking action on the request itself
         
         db.session.commit()
         
