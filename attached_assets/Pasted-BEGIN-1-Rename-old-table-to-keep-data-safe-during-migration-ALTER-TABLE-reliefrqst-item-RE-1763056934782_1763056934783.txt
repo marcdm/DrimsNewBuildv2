@@ -1,0 +1,117 @@
+BEGIN;
+
+-- 1. Rename old table to keep data safe during migration
+ALTER TABLE reliefrqst_item
+RENAME TO reliefrqst_item_old;
+
+-- 2. Create the new reliefrqst_item table with desired structure & constraints
+CREATE TABLE reliefrqst_item
+(
+    reliefrqst_id INTEGER NOT NULL
+        CONSTRAINT fk_reliefrqst_item_reliefrqst
+            REFERENCES reliefrqst,
+
+    item_id INTEGER NOT NULL
+        CONSTRAINT fk_reliefrqst_item_item
+            REFERENCES item,
+
+    request_qty DECIMAL(12,2) NOT NULL
+        CONSTRAINT c_reliefrqst_item_1
+            CHECK (request_qty > 0.00),
+
+    issue_qty DECIMAL(12,2) NOT NULL
+        CONSTRAINT c_reliefrqst_item_2a
+            CHECK (
+                (status_code IN ('R','U','W','D') AND issue_qty = 0)
+                OR (status_code IN ('P','L') AND issue_qty < request_qty)
+                OR (status_code IN ('F') AND issue_qty = request_qty)
+            ),
+
+    urgency_ind CHAR(1) NOT NULL
+        CONSTRAINT c_reliefrqst_item_3
+            CHECK (urgency_ind IN ('L','M','H','C')),
+
+    rqst_reason_desc VARCHAR(255)
+        CONSTRAINT c_reliefrqst_item_4
+            CHECK (
+                (rqst_reason_desc IS NOT NULL)
+                OR (rqst_reason_desc IS NULL AND urgency_ind IN ('L','M'))
+            ),
+
+    required_by_date DATE
+        CONSTRAINT c_reliefrqst_item_5
+            CHECK (
+                (required_by_date IS NOT NULL)
+                OR (required_by_date IS NULL AND urgency_ind IN ('L','M'))
+            ),
+
+    status_code CHAR(1) NOT NULL
+        CONSTRAINT c_reliefrqst_item_6a
+            CHECK (status_code IN ('R','U','W','D','P','L','F')),
+
+    status_reason_desc VARCHAR(255)
+        CONSTRAINT c_reliefrqst_item_6b
+            CHECK (
+                (status_reason_desc IS NOT NULL)
+                OR (status_reason_desc IS NULL AND status_code NOT IN ('D','L'))
+            ),
+
+    action_by_id VARCHAR(20)
+        CONSTRAINT c_reliefrqst_item_7
+            CHECK (
+                (action_by_id IS NULL AND status_code = 'R')
+                OR (action_by_id IS NOT NULL AND status_code <> 'R')
+            ),
+
+    action_dtime TIMESTAMP(0) WITHOUT TIME ZONE
+        CONSTRAINT c_reliefrqst_item_8
+            CHECK (
+                (action_by_id IS NULL AND action_dtime IS NULL)
+                OR (action_by_id IS NOT NULL AND action_dtime IS NOT NULL)
+            ),
+
+    version_nbr INTEGER NOT NULL,
+
+    CONSTRAINT pk_reliefrqst_item
+        PRIMARY KEY (reliefrqst_id, item_id)
+);
+
+-- 3. Copy data from old table to new table
+-- NOTE: This will fail if existing rows violate new constraints.
+INSERT INTO reliefrqst_item (
+    reliefrqst_id,
+    item_id,
+    request_qty,
+    issue_qty,
+    urgency_ind,
+    rqst_reason_desc,
+    required_by_date,
+    status_code,
+    status_reason_desc,
+    action_by_id,
+    action_dtime,
+    version_nbr
+)
+SELECT
+    reliefrqst_id,
+    item_id,
+    request_qty,
+    issue_qty,
+    urgency_ind,
+    rqst_reason_desc,
+    required_by_date,
+    status_code,
+    status_reason_desc,
+    action_by_id,
+    action_dtime,
+    version_nbr
+FROM reliefrqst_item_old;
+
+-- 4. Recreate supporting index
+CREATE INDEX dk_reliefrqst_item_2
+    ON reliefrqst_item (item_id, urgency_ind);
+
+-- 5. Drop old table after successful migration
+DROP TABLE reliefrqst_item_old;
+
+COMMIT;
