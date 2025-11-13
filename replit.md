@@ -62,9 +62,10 @@ Preferred communication style: Simple, everyday language.
     - **Precision**: `DECIMAL(15,4)` for all quantity fields.
     - **Status Management**: Integer/character codes for entity statuses.
     - **Composite Keys**: Utilized in many tables for unique identification.
-    - **Referential Integrity**: Enforced via foreign keys and complex `CHECK` constraints (e.g., `c_agency_5` for agency types).
+    - **Referential Integrity**: Enforced via foreign keys and complex `CHECK` constraints (e.g., `c_agency_5` for agency types, `c_reliefrqst_3` for status_reason_desc requirement).
     - **Optimistic Locking**: Implemented across all 40 tables using SQLAlchemy's `version_id_col` to prevent concurrent update conflicts, raising `OptimisticLockError`.
-    - **Standardized Status Management**: Migration to `reliefrqst_status` lookup table for standardized request statuses.
+    - **Standardized Status Management**: Migration to `reliefrqst_status` lookup table for standardized request statuses with `reason_rqrd_flag` indicating which statuses require justification.
+    - **Relief Request Item Status**: New `reliefrqstitem_status` lookup table with 7 status codes (R, U, W, D, P, L, F) and `item_qty_rule` for quantity validation.
     - **User Account Management**: Enhanced `public.user` table with fields for MFA, account lockout, password management, agency linkage, and account status, and `citext` extension for case-insensitive email.
     - **New Workflows**: Introduced `agency_account_request` and `agency_account_request_audit` tables for managing agency account creation workflows without altering existing schema.
 
