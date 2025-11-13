@@ -81,7 +81,7 @@ def list_requests():
     if status_filter != 'all':
         query = query.filter_by(status_code=status_filter)
     
-    requests = query.order_by(AgencyAccountRequest.created_at.desc()).all()
+    requests = query.order_by(AgencyAccountRequest.create_dtime.desc()).all()
     
     return render_template('account_requests/list.html', 
                          requests=requests, 

@@ -10,7 +10,7 @@ user_admin_bp = Blueprint('user_admin', __name__)
 @login_required
 @role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def index():
-    users = User.query.order_by(User.created_at.desc()).all()
+    users = User.query.order_by(User.create_dtime.desc()).all()
     return render_template('user_admin/index.html', users=users)
 
 @user_admin_bp.route('/create', methods=['GET', 'POST'])
