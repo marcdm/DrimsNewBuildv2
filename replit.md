@@ -21,10 +21,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### November 13, 2025 - Relief Request Item Status Code Standardization
-- **Database Constraint Update**: Added default value 'R' (Requested) to `reliefrqst_item.status_code` column
-  - **SQL Migration**: `ALTER TABLE reliefrqst_item ALTER COLUMN status_code SET DEFAULT 'R'`
-  - **Constraint**: `c_reliefrqst_item_6a` validates status codes: R, U, W, D, P, L, F
+### November 13, 2025 - Relief Request Item Referential Integrity Enhancement
+- **Critical Business Logic Constraint**: Replaced simple `c_reliefrqst_item_2` with enhanced `c_reliefrqst_item_2a` to enforce workflow semantics
+  - **Old Constraint**: Only checked `issue_qty <= request_qty` (allowed illogical states like status='R' with issue_qty>0)
+  - **New Constraint**: Enforces proper status/quantity relationships:
+    * R/U/W/D statuses → `issue_qty = 0` (not yet fulfilled)
+    * P/L statuses → `issue_qty < request_qty` (partially filled)
+    * F status → `issue_qty = request_qty` (fully filled)
+  - **Migration Method**: Table rebuild via rename → create → copy → drop (2 existing rows migrated successfully)
+  - **Validation**: Pre-migration checks confirmed zero constraint violations in existing data
+- **Duplicate Constraint Cleanup**: Removed redundant auto-generated constraints during table rebuild
+  - Removed: `reliefrqst_item_request_qty_check`, `reliefrqst_item_status_code_check`, `reliefrqst_item_urgency_ind_check`
+  - Retained: Named constraints `c_reliefrqst_item_1` through `c_reliefrqst_item_8` for clarity
+- **Database Constraint Update**: Added default values to `reliefrqst_item` columns
+  - `status_code CHAR(1) NOT NULL DEFAULT 'R'` - New items default to "Requested"
+  - `issue_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00` - New items start with zero issued quantity
+  - `version_nbr INTEGER NOT NULL DEFAULT 1` - Optimistic locking starts at version 1
 - **Status Code Constants**: Created comprehensive status code dictionary in `relief_request_service.py`
   - **Constants**: `ITEM_STATUS_REQUESTED`, `ITEM_STATUS_UNAVAILABLE`, `ITEM_STATUS_WAITING`, `ITEM_STATUS_DENIED`, `ITEM_STATUS_PARTLY_FILLED`, `ITEM_STATUS_LIMIT_ALLOWED`, `ITEM_STATUS_FILLED`
   - **Labels Dictionary**: `ITEM_STATUS_LABELS` maps codes to human-readable labels (e.g., 'R': 'Requested', 'U': 'Unavailable')
@@ -33,6 +45,7 @@ Preferred communication style: Simple, everyday language.
 - **Template Fixes**: Corrected UOM field access patterns across all templates
   - Fixed: `item.uom.uom_code` → `item.item.default_uom_code` (ReliefRqstItem → Item → default_uom_code)
   - Updated templates: `requests/edit_items.html`, `agency_requests/edit_items.html`, `agency_requests/view.html`
+- **Referential Integrity Verification**: Confirmed no orphaned foreign key references (0 invalid reliefrqst_id, 0 invalid item_id)
 
 ### November 13, 2025 - Eligibility Approval Workflow Implementation
 - **RBAC Extension**: Enhanced role-based access control with permission-based authorization
