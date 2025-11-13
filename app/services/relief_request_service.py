@@ -10,7 +10,7 @@ from flask import url_for
 from app.db import db
 from app.db.models import (
     ReliefRqst, ReliefRqstItem, Item, Event, Agency, User, Notification,
-    ReliefPkg, ReliefPkgItem, DBIntake, DBIntakeItem
+    ReliefPkg, ReliefPkgItem, DBIntake, DBIntakeItem, Role
 )
 from app.core.exceptions import OptimisticLockError
 
