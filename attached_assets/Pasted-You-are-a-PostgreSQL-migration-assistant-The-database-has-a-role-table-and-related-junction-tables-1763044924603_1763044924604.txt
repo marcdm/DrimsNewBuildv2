@@ -1,0 +1,80 @@
+You are a PostgreSQL migration assistant.
+
+The database has a role table and related junction tables:
+
+role(role_id, role_code, role_name, status_code, create_by_id, update_by_id, version_nbr, …)
+
+user_role(user_id, role_id, …)
+
+role_permission(role_id, perm_id, …)
+
+Over time, duplicate roles (same role name like System Administrator, Logistics Manager, Logistics Officer, Inventory Clerk, etc.) may have been created with different role_id values.
+
+Your task is to:
+
+Identify duplicates by role_name (case-insensitive).
+
+For each group of duplicates:
+
+Keep the role with the smallest role_id as the canonical one.
+
+Update user_role and role_permission to point to the canonical role_id.
+
+Delete the extra duplicate role rows.
+
+Make the script idempotent (running it again should do nothing harmful).
+
+Do NOT drop any tables or constraints.
+
+Execute this SQL:
+
+BEGIN;
+
+-- 1. Identify duplicate roles by role_name (case-insensitive),
+--    keeping the smallest role_id as the canonical entry.
+WITH duplicates AS (
+    SELECT
+        LOWER(role_name) AS key_name,
+        MIN(role_id) AS keep_role_id,
+        ARRAY_AGG(role_id ORDER BY role_id) AS all_role_ids
+    FROM role
+    GROUP BY LOWER(role_name)
+    HAVING COUNT(*) > 1
+),
+role_map AS (
+    -- All duplicate role_ids that should be remapped to the canonical keep_role_id
+    SELECT
+        unnest(all_role_ids[2:]) AS old_role_id,  -- all except the first
+        keep_role_id
+    FROM duplicates
+)
+
+-- 2. Update user_role to point to the canonical role_id
+UPDATE user_role ur
+SET role_id = rm.keep_role_id
+FROM role_map rm
+WHERE ur.role_id = rm.old_role_id;
+
+-- 3. Update role_permission to point to the canonical role_id
+UPDATE role_permission rp
+SET role_id = rm.keep_role_id
+FROM role_map rm
+WHERE rp.role_id = rm.old_role_id;
+
+-- 4. Delete duplicate role rows now that references are remapped
+DELETE FROM role r
+USING role_map rm
+WHERE r.role_id = rm.old_role_id;
+
+COMMIT;
+
+
+This migration will:
+
+Merge duplicates like System Administrator, Logistics Manager, Logistics Officer, Inventory Clerk, Director, PEOD, Deputy Director General, Director General, etc. into single canonical rows (per distinct role_name).
+
+Preserve all user-role and role-permission relationships by repointing them to the kept role_id.
+
+Be safe to run multiple times (after the first run, there will be no duplicates, so the CTEs produce no rows and no changes are made).
+
+Do not modify any other tables or data.
