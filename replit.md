@@ -58,7 +58,7 @@ Preferred communication style: Simple, everyday language.
 - **Schema**: Based on the authoritative ODPEM `aidmgmt-3.sql` schema, comprising 40 tables.
 - **Key Design Decisions**:
     - **Data Consistency**: All `varchar` fields are stored in uppercase.
-    - **Auditability**: `create_by_id`, `create_dtime`, `update_by_id`, `update_dtime`, and `version_nbr` are standard on ODPEM tables.
+    - **Auditability**: `create_by_id`, `create_dtime`, and `version_nbr` are standard on all ODPEM tables. Many tables also include workflow-specific audit columns (e.g., `review_by_id`, `review_dtime`, `action_by_id`, `action_dtime` for relief requests).
     - **Precision**: `DECIMAL(15,4)` for all quantity fields.
     - **Status Management**: Integer/character codes for entity statuses.
     - **Composite Keys**: Utilized in many tables for unique identification.

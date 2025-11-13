@@ -181,7 +181,7 @@ def view_request(request_id):
             'icon': 'check-circle',
             'title': 'Approved',
             'description': 'Request approved for fulfillment',
-            'timestamp': relief_request.update_dtime,
+            'timestamp': relief_request.review_dtime,
             'variant': 'success'
         })
     

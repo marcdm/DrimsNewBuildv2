@@ -1,0 +1,477 @@
+DRIMS IMPLEMENTATION PROMPT – RELIEF REQUEST PACKAGING
+You are working in the Disaster Relief Inventory Management System (DRIMS) codebase.
+Your task is to implement a Relief Request Packaging feature for relief requests, reusing existing patterns from the Needs Lists “Prepare Fulfilment” workflow.
+
+Important constraints
+
+
+Do NOT change the database schema in a destructive way.
+
+
+Do not drop tables/columns or rename them.
+
+
+Only use existing tables (e.g. reliefrqst, reliefrqst_item, reliefrqstitem_status, warehouse / inventory tables, notification tables).
+
+
+
+
+Prefer to reuse existing components, routes, templates and styles from the Needs Lists fulfilment workflow (locking, queues, cards, workflow sidebar, notifications).
+
+
+
+
+1. User Story
+
+As a Logistics Officer or Logistics Manager,
+I want to be able to create a relief package in DRIMS
+so that I can fill a relief request.
+
+This applies to relief requests (based on reliefrqst and reliefrqst_item) and must integrate with the existing role-based navigation and dashboards.
+
+2. Business Rules & Behaviour
+2.1 Single fulfiller per request
+
+
+Each relief request must be fulfilled by only one fulfiller:
+
+
+Either a Logistics Officer OR a Logistics Manager, but not both.
+
+
+
+
+Reuse the existing “edit lock / session lock” mechanism used on Needs Lists “Prepare Fulfilment” pages:
+
+
+When the first eligible user opens the relief packaging page, acquire a lock for that user.
+
+
+While the lock is active, any other user attempting to open packaging for the same request should see a non-blocking message that it is currently being prepared by <User Name>.
+
+
+If there is already an established fulfiller for this request (e.g. stored via existing locking or an audit field), keep that consistent for all subsequent edits.
+
+
+
+
+
+If you need to persist “who is the fulfiller”, reuse whatever pattern DRIMS uses for Needs Lists fulfilment (e.g. lock table / audit logs) rather than creating a new schema.
+
+
+2.2 Navigation on request selection
+
+
+For users with Logistics Officer or Logistics Manager roles:
+
+
+When they click a notification about a “new relief request to be filled”, they must be taken directly to the Relief Request Packaging Page for that request.
+
+
+When they select a request from an “Awaiting to be Filled” queue view, they must also be routed directly to the Relief Packaging Page.
+
+
+
+
+Extend existing queues / dashboards:
+
+
+Add a new section/tab for “Relief Requests – Awaiting to be Filled” that shows all relevant reliefrqst records in the correct status (e.g. SUBMITTED/APPROVED and ready for filling), following the same UX pattern as the Needs Lists “Submitted for Fulfilment” queue.
+
+
+
+
+
+2.3 Request Packaging Page – Layout & Content
+Create a new page (route + template) for packaging a relief request:
+
+
+Use the same layout and visual style as the Needs Lists “Prepare Fulfilment” page:
+
+
+Header with request number, agency, and status tag.
+
+
+Summary cards at the top (e.g. total items, items fully filled, items partially filled, items unallocated).
+
+
+Right-hand Workflow sidebar showing steps for the relief request packaging workflow.
+
+
+Lock banner if the request is currently being edited.
+
+
+
+
+The main content must show all items in the request (reliefrqst_item) and their requested quantity.
+
+
+For each item row show at minimum:
+
+
+Item name & SKU / code
+
+
+Requested quantity
+
+
+A status dropdown
+
+
+A per-warehouse allocation section (see next section)
+
+
+Any relevant urgency / priority indicators already used in DRIMS.
+
+
+
+2.4 Warehouse display & quantity updates
+For each relief request item:
+
+
+Display all warehouses where the usable quantity ≥ 0 for that item.
+(Reuse existing stock views / queries that show usable quantity per warehouse.)
+
+
+For each warehouse row show:
+
+
+Warehouse name
+
+
+Usable quantity (live from inventory)
+
+
+An editable input allocated_qty for this package.
+
+
+
+
+Rules:
+
+
+The quantity entered for each warehouse cannot exceed that warehouse’s usable quantity.
+
+
+As the user changes quantities:
+
+
+The displayed usable quantity must decrease/increase in real time.
+
+
+The corresponding reserved quantity for that item/warehouse must increase/decrease in real time (visually and via the model/state).
+
+
+
+
+The total selected quantity across all warehouses must never exceed the requested quantity for that item.
+
+
+Implement client-side validation (in the UI) and server-side validation in the POST handler so invalid allocations are rejected with clear error messages.
+
+
+You can follow the same UX style as the Needs Lists allocation page (cards, inline validation, error banners).
+
+2.5 Optimistic locking
+
+
+All updates on the Relief Packaging Page must use optimistic locking based on a version number:
+
+
+Use the existing version_nbr column on reliefrqst_item and/or reliefrqst as appropriate.
+
+
+
+
+Behaviour:
+
+
+When loading the page, include version numbers in the form (hidden fields).
+
+
+On save/submit, the backend must check that the version numbers have not changed.
+
+
+If a mismatch is detected, return a concurrency error and prompt the user to reload the latest data (similar to any existing DRIMS pattern for optimistic locking, if present).
+
+
+
+
+
+2.6 Item status dropdown behaviour
+The status dropdown for each item must be driven by reliefrqstitem_status:
+
+
+Populate dropdown options from the reliefrqstitem_status table (only active statuses).
+
+
+Codes: R, U, W, D, P, L, F etc.
+
+
+
+
+Automatic status logic:
+
+
+While total selected quantity > 0 but < requested quantity
+→ status must automatically be Partly Filled (P).
+
+
+When total selected quantity == requested quantity
+→ status must automatically be Filled (F).
+
+
+
+
+
+2.7 Allowed manual status changes
+Enforce these rules both in the UI and in the backend validation:
+
+
+When an item is Partly Filled (P):
+
+
+The user may change the status only to Allowed Limit (L).
+
+
+
+
+When an item is Filled (F):
+
+
+The user may not change the status manually.
+
+
+
+
+When the total selected quantity = 0 across all warehouses:
+
+
+The user may change status only between:
+
+
+Denied (D)
+
+
+Unavailable (U)
+
+
+Awaiting Availability (W).
+
+
+
+
+
+
+The backend must reject any attempted state transitions that violate these rules to avoid tampering.
+
+2.8 Quantity limit validation & violation treatment
+
+
+The total allocated quantity across all warehouses for an item must never exceed the item’s requested quantity.
+
+
+If the user’s entries violate any of the following:
+
+
+warehouse allocation > usable quantity,
+
+
+total allocation > requested quantity,
+
+
+invalid status transition,
+
+
+
+
+Then:
+
+
+Show a clear validation error message (inline next to the relevant field and/or as a banner at the top).
+
+
+Prevent saving or submitting until the errors are corrected.
+
+
+Keep the user’s inputs in the form so they can adjust.
+
+
+
+
+Use a consistent validation UX with the rest of DRIMS (e.g. red validation text, summary at top, etc.).
+
+3. Saving, Submission & Notifications
+3.1 Saving Draft
+
+
+The user must be able to Save Draft of the relief package:
+
+
+Persist current allocations, statuses, notes, and version numbers.
+
+
+Do not move the workflow to the next stage.
+
+
+Show a success message (“Draft saved”) and keep the user on the packaging page.
+
+
+
+
+Use the same draft pattern used for other workflows in DRIMS (e.g. Needs Lists).
+
+
+
+3.2 Submit for Approval (Logistics Officer)
+
+
+If the relief package was completed by a Logistics Officer:
+
+
+Provide a button “Submit for Approval”.
+
+
+On submission:
+
+
+Validate all rules and ensure the package is in a consistent state.
+
+
+Update the request / package status to indicate it is awaiting approval by a Logistics Manager.
+
+
+Generate:
+
+
+An email notification to all relevant Logistics Managers.
+
+
+An in-app notification to the same recipients.
+
+
+
+
+Ensure the relief package appears in the queue “Relief Packages – Awaiting Approval” on the Logistics Manager dashboard.
+
+
+
+
+Reuse existing notification and queue patterns from the Needs Lists “Awaiting Approval” flows.
+
+
+
+
+
+3.3 Send for Dispatch (Logistics Manager)
+
+
+If the relief package was completed by a Logistics Manager:
+
+
+No approval step is required.
+
+
+Provide a button “Send for Dispatch” (instead of “Submit for Approval”).
+
+
+On Send for Dispatch:
+
+
+Validate all rules and mark the package as ready for physical dispatch.
+
+
+Send notifications:
+
+
+Email and in-app notification to the Inventory Clerk role(s) indicating the relief package is awaiting dispatch.
+
+
+
+
+Ensure the package appears in the “Relief Packages – Awaiting Dispatch” queue on the Inventory Clerk dashboard.
+
+
+
+
+
+
+The Inventory Clerk should then be able to proceed with their existing dispatch workflow (or a similar pattern as used for Needs Lists dispatch).
+
+
+
+4. UX & Accessibility
+
+
+Follow the same styling and layout as DRIMS’ current UI:
+
+
+Top green header bar, side navigation, cards, badges, icons.
+
+
+
+
+Apply WCAG-aligned practices:
+
+
+All interactive controls must be reachable via keyboard.
+
+
+Use proper labels and ARIA where appropriate.
+
+
+Provide clear error messages, not just colour changes.
+
+
+
+
+
+5. Deliverables
+
+
+New routes/controllers for:
+
+
+Viewing Relief Requests – Awaiting to be Filled queue.
+
+
+Relief Request Packaging Page (GET/POST).
+
+
+Submission for approval and Send for Dispatch actions.
+
+
+
+
+New templates / components:
+
+
+Packaging page layout (reusing existing partials where possible).
+
+
+Per-item warehouse allocation UI.
+
+
+Status dropdown logic and validation.
+
+
+
+
+Integration with:
+
+
+Existing locking mechanism.
+
+
+Existing notification system.
+
+
+Existing role/permission system.
+
+
+Existing dashboards/queues.
+
+
+
+
+Implement the feature end-to-end so that a Logistics Officer or Logistics Manager can fully prepare a relief package complying with all the above rules, without modifying unrelated parts of the system or the underlying schema.
