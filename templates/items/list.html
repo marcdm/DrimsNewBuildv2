@@ -56,12 +56,10 @@
                 {% for item in items %}
                 <tr>
                     <td>
-                        <span style="color: var(--drims-text-secondary); font-weight: 500;">#{{ item.item_id }}</span>
+                        <span class="text-muted font-medium">#{{ item.item_id }}</span>
                     </td>
                     <td>
-                        <code style="background: var(--drims-bg-light); padding: 0.25rem 0.5rem; border-radius: var(--drims-radius-sm); font-size: var(--drims-text-sm);">
-                            {{ item.sku_code }}
-                        </code>
+                        <code class="code-pill">{{ item.sku_code }}</code>
                     </td>
                     <td>
                         <strong>{{ item.item_name }}</strong>

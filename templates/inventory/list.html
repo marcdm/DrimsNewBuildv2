@@ -26,7 +26,7 @@
     <!-- Filter Bar -->
     <div class="filter-bar">
         <form method="GET" class="d-flex align-items-center gap-3">
-            <label for="warehouse_id" class="form-label mb-0" style="font-weight: 600; white-space: nowrap;">
+            <label for="warehouse_id" class="form-label mb-0 font-semibold" style="white-space: nowrap;">
                 <i class="bi bi-building me-1"></i>
                 Warehouse:
             </label>
@@ -66,21 +66,19 @@
                     </td>
                     <td>{{ item_name }}</td>
                     <td>
-                        <code style="background: var(--drims-bg-light); padding: 0.25rem 0.5rem; border-radius: var(--drims-radius-sm); font-size: var(--drims-text-sm);">
-                            {{ sku_code }}
-                        </code>
+                        <code class="code-pill">{{ sku_code }}</code>
                     </td>
                     <td>
-                        <strong style="color: var(--drims-success);">{{ inv.usable_qty }}</strong>
+                        <strong class="text-success">{{ inv.usable_qty }}</strong>
                     </td>
                     <td>
-                        <span style="color: var(--drims-warning-darkest);">{{ inv.reserved_qty }}</span>
+                        <span class="text-warning">{{ inv.reserved_qty }}</span>
                     </td>
                     <td>
-                        <span style="color: var(--drims-danger);">{{ inv.defective_qty }}</span>
+                        <span class="text-danger">{{ inv.defective_qty }}</span>
                     </td>
                     <td>
-                        <span style="color: var(--drims-text-secondary);">{{ inv.expired_qty }}</span>
+                        <span class="text-muted">{{ inv.expired_qty }}</span>
                     </td>
                     <td>{{ inv.uom_code }}</td>
                     <td>
