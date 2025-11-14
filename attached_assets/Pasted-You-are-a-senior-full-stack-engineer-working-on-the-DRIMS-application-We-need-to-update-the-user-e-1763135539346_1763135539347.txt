@@ -1,0 +1,160 @@
+You are a senior full-stack engineer working on the DRIMS application.
+
+We need to update the user experience so that each role only sees what is relevant to them in their profile and on their dashboard.
+
+Use the existing roles and database schema (no new tables unless absolutely necessary).
+
+Goals
+
+Each role has its own tailored dashboard (unique layout, cards, and metrics).
+
+Each user profile page only shows information and actions relevant to that user’s role(s).
+
+As we build out new features, they should automatically be made available only to the roles that participate in that feature.
+
+Roles (examples – use what exists in the codebase)
+
+Logistics Officer (LO)
+
+Logistics Manager (LM)
+
+Inventory Clerk
+
+Agency Hub User
+
+Approvers (PEOC / ODPEM directors, etc.)
+
+Any existing admin/superuser roles
+
+(Reuse and detect roles from the current auth/permissions system.)
+
+Requirements
+1. Role-based dashboards
+
+Implement a role-aware dashboard system:
+
+When a user logs in, determine their role(s).
+
+Render a dashboard layout specific to that role.
+
+Each role’s dashboard should show only relevant widgets, stats, and links. For example:
+
+LO: “Needs Lists to fulfill”, “Relief Requests awaiting packaging”, “Recent dispatches”.
+
+LM: “Requests pending LM approval”, “Fulfillment overview”, “Dispatch queue”.
+
+Inventory Clerk: “Incoming dispatches”, “Stock to receive”, “Inventory alerts”.
+
+Agency Hub User: “My relief requests”, “Statuses / tracking”, “Notifications”.
+
+Implement this via:
+
+Either separate dashboard partials/components per role, or
+
+A single dashboard component that takes a role and renders the appropriate sections.
+
+If a user has multiple roles, either:
+
+Show a combined dashboard of all their role widgets, or
+
+Provide a simple role-switch toggle on the dashboard so they can switch between role views (whichever is easier given the existing code).
+
+2. Role-based user profile visibility
+
+Update the user profile page so it only shows:
+
+Identity info (name, email, basic details).
+
+Role-based sections that make sense for that user.
+
+Hide or remove:
+
+Buttons, links, or sections that are not relevant to that role.
+
+Any admin-only fields for non-admins.
+
+Use the existing roles/permissions to:
+
+Conditionally render sections.
+
+Prevent access to non-relevant actions even if a user tries to hit the URL directly (server-side checks).
+
+3. Role-based feature availability (for current and future features)
+
+Create a central mapping between:
+
+feature_key → allowed roles.
+
+Use this mapping to control:
+
+Navigation/menu visibility.
+
+Dashboard widgets.
+
+Buttons/actions.
+
+When implementing or extending a feature:
+
+You must register which roles are allowed to use it.
+
+Only show links/components for that feature to users who have at least one of the allowed roles.
+
+Example (pseudo-config in code):
+
+FEATURE_ACCESS = {
+    "relief_request_creation": ["AgencyHubUser"],
+    "needs_list_fulfillment": ["LogisticsOfficer", "LogisticsManager"],
+    "lm_approval": ["LogisticsManager"],
+    "inventory_dispatch": ["InventoryClerk", "LogisticsManager"],
+}
+
+
+Use whatever structure matches the existing stack, but keep it centralized and easy to extend.
+
+4. Navigation & menus
+
+Update the main navigation, sidebar, and quick links so that:
+
+Users only see menu items and actions that their role is allowed to use.
+
+Remove generic “one-size-fits-all” navigation for everyone.
+
+This must be dynamic and driven by the role/feature mapping above.
+
+5. Security & backend checks
+
+Frontend hiding is not enough:
+
+Ensure that controllers/views/endpoints also check the user’s role/permissions before executing an action or returning data.
+
+If a user tries to access a feature they’re not allowed to:
+
+Return a safe error or redirect (e.g. 403 → dashboard) with a friendly message.
+
+6. Implementation constraints
+
+Use the existing user, role, and permission models.
+
+Avoid database schema changes if possible; prefer:
+
+Config/constants.
+
+Role checks in service/controller/view layer.
+
+Keep styling consistent with the current DRIMS UI (cards, colors, typography).
+
+Deliverables
+
+Role-specific dashboard implementation and wiring to login/landing page.
+
+Updated user profile page with role-appropriate sections only.
+
+Central feature→roles mapping used to control visibility and access.
+
+Updated navigation/menus driven by the mapping.
+
+Basic comments in the code explaining:
+
+How to add a new feature and register which roles can use it.
+
+How to add/adjust dashboards per role.
