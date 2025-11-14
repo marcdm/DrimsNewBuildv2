@@ -115,12 +115,8 @@ def logistics_dashboard():
         func.sum(Inventory.usable_qty) <= Item.reorder_qty
     ).count()
     
-    total_inventory_value = db.session.query(
-        func.sum(Inventory.usable_qty * Item.unit_cost)
-    ).join(Item).filter(
-        Inventory.usable_qty > 0,
-        Item.status_code == 'A'
-    ).scalar() or 0
+    # Total inventory count (value calculation not available - no cost field in schema)
+    total_inventory_value = 0
     
     context = {
         **dashboard_data,
