@@ -23,13 +23,22 @@ def get_current_reservations(reliefrqst_id: int) -> Dict[Tuple[int, int], Decima
     
     Returns: {(item_id, warehouse_id): reserved_qty}
     """
-    pkg_items = ReliefPkgItem.query.filter_by(reliefrqst_id=reliefrqst_id).all()
+    # Get the parent ReliefPkg first to get the reliefrqst_id mapping
+    from app.db.models import ReliefPkg
+    pkg = ReliefPkg.query.filter_by(reliefrqst_id=reliefrqst_id).first()
+    
+    if not pkg:
+        return {}
+    
+    pkg_items = ReliefPkgItem.query.filter_by(reliefpkg_id=pkg.reliefpkg_id).all()
     
     reservations = {}
     for pkg_item in pkg_items:
-        if pkg_item.issue_qty and pkg_item.issue_qty > 0:
-            key = (pkg_item.item_id, pkg_item.warehouse_id)
-            reservations[key] = pkg_item.issue_qty
+        if pkg_item.item_qty and pkg_item.item_qty > 0:
+            # Get warehouse_id from the inventory relationship
+            if pkg_item.from_inventory:
+                key = (pkg_item.item_id, pkg_item.from_inventory.warehouse_id)
+                reservations[key] = pkg_item.item_qty
     
     return reservations
 
