@@ -235,6 +235,8 @@ def submit_request(reliefrqst_id: int, current_version: int, user_email: str) ->
 
 def _create_odpem_notifications(relief_request: ReliefRqst) -> None:
     """Create in-app notifications for ODPEM staff about new request submission"""
+    from app.services.notification_service import NotificationService
+    
     # Get all ODPEM director users (roles: ODPEM_DIR_PEOD, ODPEM_DDG, ODPEM_DG)
     odpem_director_roles = Role.query.filter(
         Role.code.in_(['ODPEM_DIR_PEOD', 'ODPEM_DDG', 'ODPEM_DG'])
@@ -244,21 +246,11 @@ def _create_odpem_notifications(relief_request: ReliefRqst) -> None:
     for role in odpem_director_roles:
         admin_users.extend([u for u in role.users if u.is_active])
     
-    event_name = relief_request.eligible_event.event_name if relief_request.eligible_event else "N/A"
-    agency_name = relief_request.agency.agency_name if relief_request.agency else "Unknown"
-    
-    for admin_user in admin_users:
-        notification = Notification(
-            user_id=admin_user.user_id,
-            reliefrqst_id=relief_request.reliefrqst_id,
-            title='New Relief Request Submitted',
-            message=f'Agency {agency_name} submitted relief request #{relief_request.reliefrqst_id} for event: {event_name}',
-            type='reliefrqst_submitted',
-            status='unread',
-            link_url=url_for('requests.view_request', request_id=relief_request.reliefrqst_id, _external=False),
-            is_archived=False
-        )
-        db.session.add(notification)
+    # Use centralized notification service with proper deep-linking
+    NotificationService.create_relief_request_submitted_notification(
+        relief_request=relief_request,
+        recipient_users=admin_users
+    )
 
 
 def create_dispatch_notifications(relief_request: ReliefRqst) -> None:
@@ -537,7 +529,9 @@ def submit_eligibility_decision(reliefrqst_id: int, decision: str, reason: Optio
         db.session.flush()
         
         # Notify logistics team (LO and LM) that request is eligible and ready for fulfillment
-        _create_eligible_notification(relief_request)
+        reviewer = User.query.get(review_by_id)
+        approver_name = f"{reviewer.first_name} {reviewer.last_name}" if reviewer and reviewer.first_name else "ODPEM Director"
+        _create_eligible_notification(relief_request, approver_name)
         
         return True, f"Request #{reliefrqst_id} marked as ELIGIBLE. Logistics team has been notified."
 
@@ -578,9 +572,10 @@ def _create_ineligible_notification(relief_request: ReliefRqst, reason: str) -> 
         # )
 
 
-def _create_eligible_notification(relief_request: ReliefRqst) -> None:
+def _create_eligible_notification(relief_request: ReliefRqst, approver_name: str) -> None:
     """Create notifications for logistics team when request is marked eligible"""
     from app.db.models import Role
+    from app.services.notification_service import NotificationService
     
     # Get all users with Logistics Officer or Logistics Manager roles
     logistics_roles = Role.query.filter(
@@ -594,33 +589,12 @@ def _create_eligible_notification(relief_request: ReliefRqst) -> None:
     # Remove duplicates
     logistics_users = list({user.user_id: user for user in logistics_users}.values())
     
-    event_name = relief_request.eligible_event.event_name if relief_request.eligible_event else "N/A"
-    agency_name = relief_request.agency.agency_name if relief_request.agency else "Unknown"
-    tracking_no = relief_request.tracking_no if hasattr(relief_request, 'tracking_no') else str(relief_request.reliefrqst_id)
-    
-    for user in logistics_users:
-        notification = Notification(
-            user_id=user.user_id,
-            reliefrqst_id=relief_request.reliefrqst_id,
-            title='Relief Request Ready for Fulfillment',
-            message=f'Relief request {tracking_no} from {agency_name} (Event: {event_name}) has been approved and is ready for fulfillment planning.',
-            type='reliefrqst_eligible',
-            status='unread',
-            link_url=url_for('requests.view_request', request_id=relief_request.reliefrqst_id, _external=False),
-            is_archived=False
-        )
-        db.session.add(notification)
-        
-        # TODO: Send email notification
-        # send_email(
-        #     to=user.email,
-        #     subject=f'DRIMS – New Relief Request Ready for Fulfillment',
-        #     body=f'Dear {user.first_name or user.email},\n\n'
-        #          f'Relief request {tracking_no} from {agency_name} for event "{event_name}" '
-        #          f'has been reviewed and approved for fulfillment.\n\n'
-        #          f'Please review the request and plan fulfillment accordingly.\n\n'
-        #          f'View request: {url_for("requests.view_request", request_id=relief_request.reliefrqst_id, _external=True)}'
-        # )
+    # Use centralized notification service with deep-linking to package preparation
+    NotificationService.create_relief_request_approved_notification(
+        relief_request=relief_request,
+        recipient_users=logistics_users,
+        approver_name=approver_name
+    )
 
 
 def can_process_request(reliefrqst_id: int) -> Tuple[bool, str]:

@@ -1,0 +1,207 @@
+You are a senior full-stack engineer working on the DRIMS application.
+We already have (or plan to have) in-app notifications for users (e.g. relief requests, needs lists, fulfillment, dispatch, approvals, etc.).
+I want you to set up deep-linking in-app notifications for all users so that when they click a notification, they are taken directly to the relevant page/screen in the app (same browser tab).
+Goals
+
+
+Every in-app notification must:
+
+
+Be visible in a notifications area (e.g. bell icon dropdown and/or notifications page).
+
+
+Contain enough information to deep link to the exact context (record) it refers to.
+
+
+On click, navigate the user directly to that location in the app.
+
+
+
+
+This should work for all user roles (e.g. Logistics Officer, Logistics Manager, Inventory Clerk, Agency Hub User, PEOC/ODPEM roles, etc.), using their existing permissions.
+
+
+Functional Requirements
+
+
+Deep link structure
+
+
+Each notification must include a target link that the frontend can use:
+
+
+Either a full URL (e.g. /relief-requests/123/fulfillment)
+
+
+Or a combination of: route_name + route_parameters (e.g. { route: 'relief_request_fulfillment', params: { id: 123 } }).
+
+
+
+
+Reuse the app’s existing routing system (Django routes, Flask routes, or frontend router).
+
+
+
+
+Notification data model
+
+
+Use the existing notifications table/model if it already exists.
+
+
+If there is an in-app notifications feature in the code:
+
+
+Add a field/property to store the deep link (e.g. target_url or target_route + target_params).
+
+
+
+
+If notifications are already created in code, extend the notification creation logic to always populate the deep-link info:
+
+
+Example: when a Relief Request is submitted, the notification should link to that specific relief request’s detail/approval page.
+
+
+When a Needs List is ready for fulfillment, the notification should link to the needs list completion/fulfillment page.
+
+
+When fulfillment is submitted to LM, the notification for the LM should link to the LM review page for that request.
+
+
+
+
+Do not introduce breaking schema changes; add fields in a backward-compatible way. If there’s no notification model at all, implement one using the existing ORM pattern.
+
+
+
+
+Frontend behavior
+
+
+In the in-app notifications UI (e.g. dropdown list and/or notifications page):
+
+
+Render each notification as a clickable item.
+
+
+On click:
+
+
+Redirect/navigate to the notification’s target page using the stored deep-link information.
+
+
+Use the app’s standard navigation function (not a raw window.location unless that’s the established pattern).
+
+
+
+
+
+
+Maintain a consistent look and feel with existing UI.
+
+
+Indicate read/unread state as currently done (or add basic support if it already exists).
+
+
+
+
+Role & permission checks
+
+
+Before navigating or when the deep-linked page loads:
+
+
+Ensure the user has permission to view the underlying resource.
+
+
+If the user does not have access:
+
+
+Show a friendly error message (e.g. “You don’t have permission to view this item”) and redirect to a safe page (e.g. dashboard).
+
+
+
+
+
+
+Do not expose data for records that the user is not authorized to see.
+
+
+
+
+Events that should use deep-linked notifications
+
+
+Any existing notification-worthy events should now include deep links. For example (adapt to what exists in the code):
+
+
+Relief request submitted
+
+
+Relief request eligibility decision
+
+
+Needs list created or ready for fulfillment
+
+
+Fulfillment submitted by LO → notification to LM
+
+
+LM dispatches to Inventory Clerk → notification to Inventory Clerk
+
+
+Any in-app approval or rejection events
+
+
+
+
+Reuse existing event hooks/services where notifications are already triggered; just enrich them with deep-link data.
+
+
+
+
+Technical notes
+
+
+Do not change the core database structure for relief requests, needs lists, or fulfillment entities.
+
+
+Keep any migrations minimal and backward compatible if needed for notifications.
+
+
+Add clear comments in the code explaining:
+
+
+How deep-link URLs/routes are constructed.
+
+
+How other developers can attach a deep-link when creating a new notification.
+
+
+
+
+
+
+Optional (nice to have)
+
+
+Add a “View all notifications” page that lists notifications with deep links and supports pagination.
+
+
+Allow marking notifications as read when clicked and visually distinguishing read vs unread.
+
+
+
+
+Please implement:
+
+
+Backend logic to store the deep-link information for notifications.
+
+
+Frontend updates so that all in-app notifications are clickable and navigate to the correct page.
+
+
+Basic permission handling on deep-linked navigation.
+
