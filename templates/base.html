@@ -533,14 +533,19 @@
         {{ render_dynamic_nav(current_user, active_page) }}
     </div>
 
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="notificationPanel">
-        <div class="offcanvas-header">
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="notificationPanel" style="width: 400px;">
+        <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title">Notifications</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-danger" id="clearAllNotifications" style="display: none;" onclick="clearAllNotifications()">
+                    <i class="bi bi-trash"></i> Clear All
+                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+            </div>
         </div>
-        <div class="offcanvas-body">
+        <div class="offcanvas-body p-0">
             <div id="notificationList">
-                <p class="text-muted text-center">No new notifications</p>
+                <p class="text-muted text-center p-3">No new notifications</p>
             </div>
         </div>
     </div>
@@ -631,12 +636,14 @@
         
         function loadNotificationList() {
             const notificationList = document.getElementById('notificationList');
-            notificationList.innerHTML = '<div class="text-center"><span class="spinner-border spinner-border-sm"></span> Loading...</div>';
+            const clearAllBtn = document.getElementById('clearAllNotifications');
+            notificationList.innerHTML = '<div class="text-center p-3"><span class="spinner-border spinner-border-sm"></span> Loading...</div>';
             
             fetch('{{ url_for("notifications.notification_list") }}')
                 .then(response => response.json())
                 .then(data => {
                     if (data.notifications && data.notifications.length > 0) {
+                        clearAllBtn.style.display = 'block';
                         let listHtml = '<div class="list-group list-group-flush">';
                         
                         data.notifications.forEach(notif => {
@@ -644,46 +651,104 @@
                             const unreadBadge = notif.is_unread ? '<span class="badge bg-primary ms-2">New</span>' : '';
                             const boldClass = notif.is_unread ? 'fw-bold' : '';
                             
-                            // Escape user-generated content to prevent XSS
                             const safeTitle = escapeHtml(notif.title);
                             const safeMessage = escapeHtml(notif.message);
                             const safeCreatedAt = escapeHtml(notif.created_at);
                             
+                            const safeLink = escapeHtml(notif.link_url);
                             listHtml += `
-                                <form method="POST" action="/notifications/${notif.id}/mark-read" style="display: inline;">
-                                    <button type="submit" class="list-group-item list-group-item-action text-start ${boldClass}" style="border: none; width: 100%;">
+                                <div class="list-group-item d-flex align-items-start ${boldClass}" style="border-left: none; border-right: none; padding: 0;">
+                                    <a href="${safeLink}" class="flex-grow-1 text-decoration-none p-3" style="color: inherit;">
                                         <div class="d-flex w-100 justify-content-between align-items-start">
                                             <div class="d-flex align-items-start">
                                                 <div class="me-3">
                                                     ${iconClass}
                                                 </div>
                                                 <div>
-                                                    <h6 class="mb-1">${safeTitle}</h6>
+                                                    <h6 class="mb-1 text-dark">${safeTitle}</h6>
                                                     <p class="mb-1 text-muted small">${safeMessage}</p>
                                                     <small class="text-muted">${safeCreatedAt}</small>
                                                     ${unreadBadge}
                                                 </div>
                                             </div>
                                             <div>
-                                                <i class="bi bi-chevron-right"></i>
+                                                <i class="bi bi-chevron-right text-muted"></i>
                                             </div>
                                         </div>
+                                    </a>
+                                    <button class="btn btn-link text-danger p-2" onclick="deleteNotification(${notif.id}, event)" title="Delete notification">
+                                        <i class="bi bi-trash"></i>
                                     </button>
-                                </form>
+                                </div>
                             `;
                         });
                         
                         listHtml += '</div>';
-                        listHtml += '<a href="{{ url_for("notifications.index") }}" class="btn btn-sm btn-outline-primary w-100 mt-3">View All</a>';
+                        listHtml += '<a href="{{ url_for("notifications.index") }}" class="btn btn-sm btn-outline-primary w-100 m-3">View All</a>';
                         notificationList.innerHTML = listHtml;
                     } else {
-                        notificationList.innerHTML = '<p class="text-muted text-center">No new notifications</p>';
+                        clearAllBtn.style.display = 'none';
+                        notificationList.innerHTML = '<p class="text-muted text-center p-3">No new notifications</p>';
                     }
                 })
                 .catch(error => {
                     console.error('Error loading notification list:', error);
-                    notificationList.innerHTML = '<p class="text-danger text-center">Failed to load notifications</p>';
+                    clearAllBtn.style.display = 'none';
+                    notificationList.innerHTML = '<p class="text-danger text-center p-3">Failed to load notifications</p>';
                 });
+        }
+        
+        function clearAllNotifications() {
+            if (!confirm('Are you sure you want to clear all notifications? This cannot be undone.')) {
+                return;
+            }
+            
+            fetch('/notifications/api/clear-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotificationList();
+                    loadNotifications();
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing notifications:', error);
+                alert('Failed to clear notifications. Please try again.');
+            });
+        }
+        
+        function deleteNotification(notificationId, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            if (!confirm('Delete this notification?')) {
+                return;
+            }
+            
+            fetch(`/notifications/api/delete/${notificationId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotificationList();
+                    loadNotifications();
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting notification:', error);
+                alert('Failed to delete notification. Please try again.');
+            });
         }
         
         function escapeHtml(text) {

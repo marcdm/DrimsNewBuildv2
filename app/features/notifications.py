@@ -99,9 +99,31 @@ def clear_all():
     
     count = NotificationService.clear_all_notifications(current_user.user_id)
     
+    # Return JSON for AJAX requests, redirect for form submissions
+    if request.is_json or request.headers.get('Accept') == 'application/json':
+        return jsonify({'success': True, 'count': count, 'message': f'Cleared {count} notification{"s" if count != 1 else ""}'}), 200
+    
     if count > 0:
         flash(f'Successfully cleared {count} notification{"s" if count != 1 else ""}.', 'success')
     else:
         flash('No notifications to clear.', 'info')
     
     return redirect(url_for('notifications.index'))
+
+@notifications_bp.route('/api/clear-all', methods=['POST'])
+@login_required
+def api_clear_all():
+    """JSON API: Delete all notifications for the current user"""
+    count = NotificationService.clear_all_notifications(current_user.user_id)
+    return jsonify({'success': True, 'count': count, 'message': f'Cleared {count} notification{"s" if count != 1 else ""}'}), 200
+
+@notifications_bp.route('/api/delete/<int:notification_id>', methods=['POST'])
+@login_required
+def api_delete_notification(notification_id):
+    """JSON API: Delete a specific notification"""
+    success = NotificationService.delete_notification(notification_id, current_user.user_id)
+    
+    if success:
+        return jsonify({'success': True, 'message': 'Notification deleted successfully'}), 200
+    else:
+        return jsonify({'success': False, 'message': 'Notification not found or access denied'}), 404
