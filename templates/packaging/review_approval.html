@@ -395,9 +395,13 @@
                                     {% elif item.status_code == 'P' %}
                                     {{ status_badge('partial', 'Partly Filled') }}
                                     {% elif item.status_code == 'L' %}
-                                    {{ status_badge('limit', 'Limit Allowed') }}
+                                    <span data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{% if item.status_reason_desc %}Reason: {{ item.status_reason_desc }}{% else %}Limit allowed by Logistics Officer{% endif %}" style="cursor: help;">
+                                        {{ status_badge('limit', 'Limit Allowed') }}
+                                    </span>
                                     {% elif item.status_code == 'D' %}
-                                    {{ status_badge('denied', 'Denied') }}
+                                    <span data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{% if item.status_reason_desc %}Reason: {{ item.status_reason_desc }}{% else %}Denied by Logistics Officer{% endif %}" style="cursor: help;">
+                                        {{ status_badge('denied', 'Denied') }}
+                                    </span>
                                     {% elif item.status_code == 'U' %}
                                     {{ status_badge('unavailable', 'Unavailable') }}
                                     {% elif item.status_code == 'W' %}
@@ -498,4 +502,14 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Initialize Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+});
+</script>
 {% endblock %}
