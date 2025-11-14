@@ -13,6 +13,38 @@ DRIMS (Disaster Relief Inventory Management System) is a web-based platform for 
 
 ## Recent Changes
 
+### November 14, 2025 - Phase 6: Dynamic Navigation System Complete
+**Major Feature:** Implemented role-based dynamic navigation that adapts to user permissions
+
+#### Dynamic Navigation System
+- **Navigation Macro** (`templates/components/_dynamic_navigation.html`): Dynamic menu rendering
+  - Uses FeatureRegistry to show only accessible features
+  - Organizes features by category (Dashboard, Relief Requests, Inventory, Management, Administration, System)
+  - Renders navigation with icons, labels, routes, and active page highlighting
+  - Handles uncategorized features gracefully
+
+- **Template Helper Registration** (`app.py`):
+  - `get_user_features()` exposed to all Jinja2 templates
+  - Zero-argument lambda bound to current_user context
+  - Returns list of user's accessible features
+
+- **Base Template Optimization** (`templates/base.html`):
+  - Replaced ~100 lines of hardcoded navigation with 3-line macro call
+  - Added "My Profile" link to user dropdown menu
+  - Maintained all styling and collapsible sidebar functionality
+
+**Benefits:**
+- Navigation automatically adapts to user's role
+- No hardcoded menus to maintain
+- FeatureRegistry as single source of truth
+- Scalable and maintainable architecture
+
+**Technical Implementation:**
+- Clean macro using Jinja2 best practices
+- Template helper correctly registered with zero arguments
+- Category-based organization with defined order
+- Active state detection preserved
+
 ### November 14, 2025 - Phase 5: User Profile Pages Complete
 **Major Feature:** Implemented comprehensive user profile system with role-specific sections
 
