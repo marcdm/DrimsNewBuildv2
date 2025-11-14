@@ -714,12 +714,15 @@
 
                 <!-- Action Buttons -->
                 <div class="action-buttons">
-                    <form action="{{ url_for('packaging.cancel_preparation', reliefrqst_id=relief_request.reliefrqst_id) }}" method="POST" style="display: inline;">
-                        <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Cancel package preparation? All unsaved changes and reservations will be released.')">
-                            <i class="bi bi-x-circle"></i>
-                            Cancel
-                        </button>
-                    </form>
+                    <button type="submit" 
+                            class="btn btn-secondary btn-sm" 
+                            formaction="{{ url_for('packaging.cancel_preparation', reliefrqst_id=relief_request.reliefrqst_id) }}" 
+                            formmethod="post"
+                            formnovalidate
+                            onclick="return confirm('Cancel package preparation? All unsaved changes and reservations will be released.')">
+                        <i class="bi bi-x-circle"></i>
+                        Cancel
+                    </button>
                     <button type="submit" name="action" value="save_draft" class="btn-relief-secondary">
                         <i class="bi bi-save"></i>
                         Save Draft
