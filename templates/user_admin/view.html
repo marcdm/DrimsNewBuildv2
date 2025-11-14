@@ -1,142 +1,408 @@
 {% extends "base.html" %}
-{% block title %}User Details - DRIMS{% endblock %}
+{% from 'user_admin/_macros.html' import status_badge, role_badges, mfa_status_badge, info_row, security_item, audit_event, compliance_alert %}
+
+{% block title %}{{ user.full_name or user.email }} - User Profile{% endblock %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/user-management-ui.css') }}">
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-person-fill"></i> User Details</h2>
-    <div>
-        <a href="{{ url_for('user_admin.edit', user_id=user.user_id) }}" class="btn btn-warning">
-            <i class="bi bi-pencil"></i> Edit User
-        </a>
-        <a href="{{ url_for('user_admin.index') }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Back to List
-        </a>
-    </div>
-</div>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="mb-0">Account Information</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless mb-0">
-                    <tr>
-                        <th width="40%">User ID:</th>
-                        <td>{{ user.user_id }}</td>
-                    </tr>
-                    <tr>
-                        <th>Email:</th>
-                        <td>{{ user.email }}</td>
-                    </tr>
-                    <tr>
-                        <th>Full Name:</th>
-                        <td>{{ user.full_name or '-' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Organization:</th>
-                        <td>{{ user.organization or '-' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Job Title:</th>
-                        <td>{{ user.job_title or '-' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Phone:</th>
-                        <td>{{ user.phone or '-' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Status:</th>
-                        <td>
-                            {% if user.is_active %}
-                                <span class="badge bg-success">Active</span>
-                            {% else %}
-                                <span class="badge bg-danger">Inactive</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Created:</th>
-                        <td>{{ user.create_dtime.strftime('%Y-%m-%d %H:%M') if user.create_dtime else '-' }}</td>
-                    </tr>
-                </table>
-            </div>
+<div class="user-management-container">
+    <!-- Page Header -->
+    <div class="page-header-modern">
+        <div class="page-title-group">
+            <h1>
+                <i class="bi bi-person-circle"></i>
+                User Profile
+            </h1>
+            <p class="subtitle">{{ user.email }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('user_admin.edit', user_id=user.user_id) }}" class="btn-user-action warning">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{{ url_for('user_admin.index') }}" class="btn-user-action">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
         </div>
     </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Security Panel (if issues detected) -->
+    {% set security_issues = [] %}
+    {% if not user.mfa_enabled %}
+        {% set _ = security_issues.append('MFA not enabled') %}
+    {% endif %}
+    {% if user.is_locked %}
+        {% set _ = security_issues.append('Account locked') %}
+    {% endif %}
+    {% if not user.is_active %}
+        {% set _ = security_issues.append('Account inactive') %}
+    {% endif %}
     
-    <div class="col-md-6">
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="mb-0">Roles</h5>
+    {% if security_issues %}
+    <div class="security-panel">
+        <div class="security-panel-header">
+            <div class="security-icon">
+                <i class="bi bi-exclamation-triangle-fill"></i>
             </div>
-            <div class="card-body">
-                {% if user.roles %}
-                <ul class="list-group">
-                    {% for role in user.roles %}
-                    <li class="list-group-item">
-                        <strong>{{ role.name }}</strong>
-                        {% if role.description %}
-                        <br><small class="text-muted">{{ role.description }}</small>
-                        {% endif %}
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted">No roles assigned</p>
-                {% endif %}
+            <div>
+                <h3 class="security-panel-title">Security Attention Required</h3>
+                <p class="mb-0 small text-muted">{{ security_issues|length }} issue{{ 's' if security_issues|length != 1 else '' }} detected</p>
             </div>
         </div>
-        
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="mb-0">Warehouse Access</h5>
+        <div class="security-items">
+            {% if not user.mfa_enabled %}
+            <div class="security-item">
+                <div class="security-item-header">
+                    <span class="security-item-label">Multi-Factor Authentication</span>
+                    {{ mfa_status_badge(False, False) }}
+                </div>
+                <div class="security-item-value text-warning">Enable MFA to improve account security</div>
             </div>
-            <div class="card-body">
-                {% if user.warehouses %}
-                <ul class="list-group">
-                    {% for warehouse in user.warehouses %}
-                    <li class="list-group-item">{{ warehouse.warehouse_name }}</li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted">Access to all warehouses</p>
-                {% endif %}
+            {% endif %}
+            {% if user.is_locked %}
+            <div class="security-item">
+                <div class="security-item-header">
+                    <span class="security-item-label">Account Status</span>
+                    {{ status_badge('locked') }}
+                </div>
+                <div class="security-item-value text-danger">Account is currently locked</div>
             </div>
+            {% endif %}
+            {% if not user.is_active %}
+            <div class="security-item">
+                <div class="security-item-header">
+                    <span class="security-item-label">Account Activation</span>
+                    {{ status_badge('inactive', False) }}
+                </div>
+                <div class="security-item-value text-danger">Account is deactivated</div>
+            </div>
+            {% endif %}
         </div>
     </div>
-</div>
+    {% endif %}
 
-<div class="card">
-    <div class="card-header bg-danger text-white">
-        <h5 class="mb-0">Danger Zone</h5>
-    </div>
-    <div class="card-body">
-        {% if user.is_active %}
-        <form method="POST" action="{{ url_for('user_admin.deactivate', user_id=user.user_id) }}" style="display:inline;"
-              onsubmit="return confirm('Are you sure you want to deactivate this user?');">
-            <button type="submit" class="btn btn-danger">
-                <i class="bi bi-person-x"></i> Deactivate User
+    <!-- Tabbed Content -->
+    <div class="profile-tabs-container">
+        <!-- Tab Headers -->
+        <div class="profile-tabs" role="tablist">
+            <button class="profile-tab active" 
+                    data-tab="identity" 
+                    role="tab" 
+                    aria-selected="true" 
+                    aria-controls="identity-panel">
+                <i class="bi bi-person-badge"></i> Identity Summary
             </button>
-        </form>
-        {% else %}
-        <form method="POST" action="{{ url_for('user_admin.activate', user_id=user.user_id) }}" style="display:inline;">
-            <button type="submit" class="btn btn-success">
-                <i class="bi bi-person-check"></i> Activate User
+            <button class="profile-tab" 
+                    data-tab="roles" 
+                    role="tab" 
+                    aria-selected="false" 
+                    aria-controls="roles-panel">
+                <i class="bi bi-shield-lock"></i> Roles & Privileges
             </button>
-        </form>
-        {% endif %}
+            <button class="profile-tab" 
+                    data-tab="security" 
+                    role="tab" 
+                    aria-selected="false" 
+                    aria-controls="security-panel">
+                <i class="bi bi-shield-check"></i> Security Controls
+            </button>
+            <button class="profile-tab" 
+                    data-tab="activity" 
+                    role="tab" 
+                    aria-selected="false" 
+                    aria-controls="activity-panel">
+                <i class="bi bi-clock-history"></i> Activity Timeline
+            </button>
+        </div>
+
+        <!-- Tab Content: Identity Summary -->
+        <div class="profile-tab-content" id="identity-panel" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-md-8">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <h3 class="info-card-title">Personal Information</h3>
+                        </div>
+                        {{ info_row('Full Name', user.full_name or '-', icon='person') }}
+                        {{ info_row('Email Address', user.email, icon='envelope') }}
+                        {{ info_row('Job Title', user.job_title or '-', icon='briefcase') }}
+                        {{ info_row('Phone Number', user.phone or '-', icon='telephone') }}
+                        {{ info_row('Organization', user.organization or '-', icon='building') }}
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <h3 class="info-card-title">Account Status</h3>
+                        </div>
+                        {{ info_row('Status', badge=status_badge('active' if user.is_active else ('locked' if user.is_locked else 'inactive'), user.is_active), icon='toggle-on') }}
+                        {{ info_row('User ID', user.user_id, icon='hash') }}
+                        {{ info_row('Created', user.create_dtime.strftime('%Y-%m-%d %H:%M') if user.create_dtime else '-', icon='calendar-plus') }}
+                        {{ info_row('Last Login', user.last_login_dtime.strftime('%Y-%m-%d %H:%M') if user.last_login_dtime else 'Never', icon='box-arrow-in-right') }}
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <!-- Quick Actions -->
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <h3 class="info-card-title">Quick Actions</h3>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('user_admin.edit', user_id=user.user_id) }}" class="btn-user-action primary">
+                                <i class="bi bi-pencil"></i> Edit Profile
+                            </a>
+                            {% if user.is_active %}
+                            <form method="POST" action="{{ url_for('user_admin.deactivate', user_id=user.user_id) }}" 
+                                  onsubmit="return confirm('Deactivate this user account?');">
+                                <button type="submit" class="btn-user-action danger w-100">
+                                    <i class="bi bi-person-x"></i> Deactivate Account
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('user_admin.activate', user_id=user.user_id) }}">
+                                <button type="submit" class="btn-user-action primary w-100">
+                                    <i class="bi bi-person-check"></i> Activate Account
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Roles & Privileges -->
+        <div class="profile-tab-content" id="roles-panel" role="tabpanel" style="display: none;">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <h3 class="info-card-title">Assigned Roles</h3>
+                            <span class="badge bg-primary">{{ user.roles|length }}</span>
+                        </div>
+                        {% if user.roles %}
+                            {% for role in user.roles %}
+                                <div class="info-row">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-shield-fill-check text-success"></i>
+                                        <div>
+                                            <div class="fw-bold">{{ role.name }}</div>
+                                            {% if role.role_desc %}
+                                                <small class="text-muted">{{ role.role_desc }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted text-center py-4">
+                                <i class="bi bi-inbox" style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
+                                No roles assigned to this user
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <h3 class="info-card-title">Warehouse Access</h3>
+                            <span class="badge bg-info">{{ user.warehouses|length if user.warehouses else 'All' }}</span>
+                        </div>
+                        {% if user.warehouses %}
+                            {% for warehouse in user.warehouses %}
+                                <div class="info-row">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-building text-primary"></i>
+                                        <div>
+                                            <div class="fw-bold">{{ warehouse.warehouse_name }}</div>
+                                            <small class="text-muted">{{ warehouse.physical_addr or 'No address specified' }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted text-center py-4">
+                                <i class="bi bi-building-check" style="font-size: 2rem; display: block; margin-bottom: 1rem; color: #28a745;"></i>
+                                Access to all warehouses
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Security Controls -->
+        <div class="profile-tab-content" id="security-panel" role="tabpanel" style="display: none;">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <h3 class="info-card-title">Authentication & Access</h3>
+                        </div>
+                        {{ info_row('Multi-Factor Authentication', badge=mfa_status_badge(user.mfa_enabled, user.mfa_secret is not none), icon='shield-check') }}
+                        {{ info_row('Account Lock Status', badge=status_badge('locked') if user.is_locked else '<span class="text-success"><i class="bi bi-unlock-fill"></i> Unlocked</span>', icon='lock') }}
+                        {{ info_row('Failed Login Attempts', user.failed_login_attempts or '0', icon='exclamation-triangle') }}
+                        {{ info_row('Last Password Change', user.password_changed_dtime.strftime('%Y-%m-%d') if user.password_changed_dtime else 'Never', icon='key') }}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <h3 class="info-card-title">Session Information</h3>
+                        </div>
+                        {{ info_row('Current Session', 'Active' if user.user_id == current_user.user_id else 'No active session', icon='broadcast') }}
+                        {{ info_row('Last Login IP', user.last_login_ip or '-', icon='geo-alt') }}
+                        {{ info_row('Last Login Time', user.last_login_dtime.strftime('%Y-%m-%d %H:%M:%S') if user.last_login_dtime else 'Never', icon='clock') }}
+                        {{ info_row('Login Count', user.login_count or '0', icon='arrow-repeat') }}
+                    </div>
+
+                    {{ compliance_alert(
+                        type='info',
+                        title='GDPR Compliance',
+                        message='Personal data is stored securely and used only for system access management.',
+                        icon='shield-check'
+                    ) }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Activity Timeline -->
+        <div class="profile-tab-content" id="activity-panel" role="tabpanel" style="display: none;">
+            <div class="info-card">
+                <div class="info-card-header">
+                    <h3 class="info-card-title">Recent Activity</h3>
+                </div>
+                <div class="audit-timeline">
+                    {% if user.create_dtime %}
+                        {{ audit_event(
+                            title='Account Created',
+                            details='User account was created in the system',
+                            timestamp=user.create_dtime.strftime('%Y-%m-%d %H:%M') if user.create_dtime else '',
+                            event_type='success',
+                            icon='person-plus-fill',
+                            meta='Created by: System Administrator'
+                        ) }}
+                    {% endif %}
+                    
+                    {% if user.last_login_dtime %}
+                        {{ audit_event(
+                            title='Last Login',
+                            details='User successfully logged into the system',
+                            timestamp=user.last_login_dtime.strftime('%Y-%m-%d %H:%M') if user.last_login_dtime else '',
+                            event_type='success',
+                            icon='box-arrow-in-right',
+                            meta='IP Address: ' + (user.last_login_ip or 'Unknown')
+                        ) }}
+                    {% endif %}
+                    
+                    {% if user.password_changed_dtime %}
+                        {{ audit_event(
+                            title='Password Changed',
+                            details='User password was updated',
+                            timestamp=user.password_changed_dtime.strftime('%Y-%m-%d %H:%M') if user.password_changed_dtime else '',
+                            event_type='info',
+                            icon='key-fill'
+                        ) }}
+                    {% endif %}
+                    
+                    {% if user.is_locked %}
+                        {{ audit_event(
+                            title='Account Locked',
+                            details='Account was locked due to security policy',
+                            timestamp='Recent',
+                            event_type='critical',
+                            icon='lock-fill',
+                            meta='Reason: ' + (user.lockout_reason or 'Multiple failed login attempts')
+                        ) }}
+                    {% endif %}
+                    
+                    {% if not user.last_login_dtime and user.create_dtime %}
+                        {{ audit_event(
+                            title='Account Never Accessed',
+                            details='This user has never logged into the system',
+                            timestamp='N/A',
+                            event_type='warning',
+                            icon='exclamation-triangle-fill'
+                        ) }}
+                    {% endif %}
+                </div>
+                
+                <div class="text-center mt-4">
+                    <p class="text-muted small">
+                        <i class="bi bi-info-circle"></i>
+                        Detailed audit logs are available in the system audit trail
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('.profile-tab');
+    const panels = document.querySelectorAll('.profile-tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+            
+            // Update tab states
+            tabs.forEach(t => {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            this.classList.add('active');
+            this.setAttribute('aria-selected', 'true');
+            
+            // Update panel visibility
+            panels.forEach(panel => {
+                panel.style.display = 'none';
+            });
+            const targetPanel = document.getElementById(`${targetTab}-panel`);
+            if (targetPanel) {
+                targetPanel.style.display = 'block';
+            }
+        });
+    });
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        const activeTab = document.querySelector('.profile-tab.active');
+        if (!activeTab) return;
+        
+        let targetTab = null;
+        
+        if (e.key === 'ArrowRight') {
+            targetTab = activeTab.nextElementSibling;
+        } else if (e.key === 'ArrowLeft') {
+            targetTab = activeTab.previousElementSibling;
+        }
+        
+        if (targetTab && targetTab.classList.contains('profile-tab')) {
+            targetTab.click();
+            targetTab.focus();
+        }
+    });
+});
+</script>
 {% endblock %}

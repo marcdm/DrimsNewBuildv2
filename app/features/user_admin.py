@@ -11,7 +11,29 @@ user_admin_bp = Blueprint('user_admin', __name__)
 @role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN')
 def index():
     users = User.query.order_by(User.create_dtime.desc()).all()
-    return render_template('user_admin/index.html', users=users)
+    
+    total_users = len(users)
+    active_users = sum(1 for u in users if u.is_active)
+    inactive_users = sum(1 for u in users if not u.is_active)
+    locked_users = sum(1 for u in users if u.is_locked)
+    
+    mfa_enabled_users = sum(1 for u in users if u.mfa_enabled)
+    mfa_percentage = round((mfa_enabled_users / total_users * 100) if total_users > 0 else 0, 1)
+    
+    admin_role_codes = ['SYSTEM_ADMINISTRATOR', 'SYS_ADMIN']
+    admin_users = sum(1 for u in users if any(r.role_code in admin_role_codes for r in u.roles))
+    
+    metrics = {
+        'total_users': total_users,
+        'active_users': active_users,
+        'inactive_users': inactive_users,
+        'locked_users': locked_users,
+        'mfa_enabled': mfa_enabled_users,
+        'mfa_percentage': mfa_percentage,
+        'admin_users': admin_users
+    }
+    
+    return render_template('user_admin/index.html', users=users, metrics=metrics)
 
 @user_admin_bp.route('/create', methods=['GET', 'POST'])
 @login_required
