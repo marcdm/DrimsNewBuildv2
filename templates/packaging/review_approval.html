@@ -258,9 +258,17 @@
             <!-- Summary Metric Cards -->
             <div class="metric-cards">
                 {% set total_items = relief_request.items|length %}
-                {% set fully_filled = relief_request.items|selectattr('issue_qty', 'ge', relief_request.items|map(attribute='request_qty')|list)|list|length %}
-                {% set partially_filled = relief_request.items|selectattr('issue_qty', 'gt', 0)|list|length - fully_filled %}
-                {% set not_allocated = total_items - fully_filled - partially_filled %}
+                {% set ns = namespace(fully_filled=0, partially_filled=0, not_allocated=0) %}
+                {% for item in relief_request.items %}
+                    {% set issue = item.issue_qty or 0 %}
+                    {% if issue >= item.request_qty %}
+                        {% set ns.fully_filled = ns.fully_filled + 1 %}
+                    {% elif issue > 0 %}
+                        {% set ns.partially_filled = ns.partially_filled + 1 %}
+                    {% else %}
+                        {% set ns.not_allocated = ns.not_allocated + 1 %}
+                    {% endif %}
+                {% endfor %}
                 
                 <div class="metric-card">
                     <div class="metric-icon total">
@@ -278,7 +286,7 @@
                     </div>
                     <div class="metric-content">
                         <h6>Fully Allocated</h6>
-                        <p class="metric-value">{{ fully_filled }}</p>
+                        <p class="metric-value">{{ ns.fully_filled }}</p>
                     </div>
                 </div>
                 
@@ -288,7 +296,7 @@
                     </div>
                     <div class="metric-content">
                         <h6>Partial</h6>
-                        <p class="metric-value">{{ partially_filled }}</p>
+                        <p class="metric-value">{{ ns.partially_filled }}</p>
                     </div>
                 </div>
                 
@@ -298,7 +306,7 @@
                     </div>
                     <div class="metric-content">
                         <h6>Unallocated</h6>
-                        <p class="metric-value">{{ not_allocated }}</p>
+                        <p class="metric-value">{{ ns.not_allocated }}</p>
                     </div>
                 </div>
             </div>
