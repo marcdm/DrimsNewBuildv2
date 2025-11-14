@@ -431,6 +431,18 @@ def _process_allocations(relief_request, validate_complete=False):
         # Update relief request item fields
         item.issue_qty = total_allocated
         item.status_code = requested_status
+        
+        # Set status_reason_desc for statuses that require it (D, L)
+        if requested_status in ['D', 'L']:
+            # Set a default reason if not manually provided
+            if requested_status == 'L':
+                item.status_reason_desc = f'Allocated {total_allocated} of {request_qty} based on available stock'
+            elif requested_status == 'D':
+                item.status_reason_desc = 'Item denied due to logistics constraints'
+        else:
+            # Clear reason for other statuses
+            item.status_reason_desc = None
+        
         item.action_by_id = current_user.email[:20]
         item.action_dtime = datetime.now()
         item.version_nbr += 1
