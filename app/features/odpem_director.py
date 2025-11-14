@@ -73,8 +73,7 @@ def dashboard():
         ).filter(
             ReliefRqst.review_by_id.is_(None)
         ).order_by(
-            ReliefRqst.request_date.asc(),
-            ReliefRqst.urgency_ind.desc()
+            ReliefRqst.create_dtime.desc()
         ).all()
     elif view_filter == 'pending_fulfillment':
         # Requests approved and awaiting fulfillment
@@ -84,8 +83,7 @@ def dashboard():
                 rr_service.STATUS_PART_FILLED
             ])
         ).order_by(
-            ReliefRqst.request_date.asc(),
-            ReliefRqst.urgency_ind.desc()
+            ReliefRqst.create_dtime.desc()
         ).all()
     elif view_filter == 'in_progress':
         # All requests in progress (not completed/cancelled/denied)
@@ -96,19 +94,19 @@ def dashboard():
                 rr_service.STATUS_PART_FILLED
             ])
         ).order_by(
-            ReliefRqst.request_date.desc()
+            ReliefRqst.create_dtime.desc()
         ).all()
     elif view_filter == 'completed':
         # Completed/filled requests
         requests = build_query().filter_by(
             status_code=rr_service.STATUS_FILLED
         ).order_by(
-            ReliefRqst.request_date.desc()
+            ReliefRqst.create_dtime.desc()
         ).all()
     else:
         # All requests (complete history)
         requests = build_query().order_by(
-            ReliefRqst.request_date.desc()
+            ReliefRqst.create_dtime.desc()
         ).all()
     
     return render_template('director/dashboard.html',
