@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% from 'relief_requests/_status_badge.html' import status_badge %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/relief-requests-ui.css') }}">
+{% endblock %}
+
+{% block title %}Review & Approve Package{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="page-header mb-0">
+            <div class="page-title">
+                <i class="bi bi-clipboard-check page-title-icon"></i>
+                <h1 class="page-title-text">Review & Approve Package</h1>
+            </div>
+            <p class="page-subtitle">Request RR-{{ '%06d'|format(relief_request.reliefrqst_id) }} submitted by Logistics Officer</p>
+        </div>
+        <div>
+            <a href="{{ url_for('packaging.pending_approval') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Queue
+            </a>
+        </div>
+    </div>
+
+    <!-- Request Summary -->
+    <div class="drims-card mb-4">
+        <h5 class="card-subtitle mb-3"><i class="bi bi-info-circle"></i> Request Summary</h5>
+        <div class="row">
+            <div class="col-md-3">
+                <p class="mb-2"><strong>Requesting Agency:</strong></p>
+                <p>{{ relief_request.agency.agency_name if relief_request.agency else 'Unknown' }}</p>
+            </div>
+            <div class="col-md-3">
+                <p class="mb-2"><strong>Request Date:</strong></p>
+                <p>{{ relief_request.request_date.strftime('%b %d, %Y') if relief_request.request_date else 'N/A' }}</p>
+            </div>
+            <div class="col-md-3">
+                <p class="mb-2"><strong>Priority:</strong></p>
+                <p>
+                    {% if relief_request.urgency_ind == 'H' %}
+                    {{ status_badge('high', 'High') }}
+                    {% elif relief_request.urgency_ind == 'M' %}
+                    {{ status_badge('medium', 'Medium') }}
+                    {% elif relief_request.urgency_ind == 'L' %}
+                    {{ status_badge('low', 'Low') }}
+                    {% else %}
+                    <span class="text-muted">N/A</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-3">
+                <p class="mb-2"><strong>Total Items:</strong></p>
+                <p><strong>{{ relief_request.items|length }}</strong> items</p>
+            </div>
+        </div>
+        {% if relief_request.rqst_notes_text %}
+        <div class="mt-3">
+            <p class="mb-2"><strong>Request Notes:</strong></p>
+            <p class="text-muted">{{ relief_request.rqst_notes_text }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Prepared Allocations -->
+    <div class="drims-card mb-4">
+        <h5 class="card-subtitle mb-3"><i class="bi bi-box-seam"></i> Prepared Allocations (Read-Only)</h5>
+        <p class="text-muted mb-3">Review the quantities allocated by the Logistics Officer before approving.</p>
+        
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Item</th>
+                        <th style="width: 150px;">Requested Qty</th>
+                        <th style="width: 150px;">Allocated Qty</th>
+                        <th style="width: 200px;">Status</th>
+                        <th>Warehouse Allocations</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in relief_request.items %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.item.item_name if item.item else 'Unknown' }}</strong>
+                            {% if item.item and item.item.category %}
+                            <div class="table-sku">{{ item.item.category.category_name }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <strong>{{ item.request_qty }}</strong>
+                            {{ item.item.default_uom.uom_name if item.item and item.item.default_uom else 'EA' }}
+                        </td>
+                        <td class="text-center">
+                            <strong class="{% if item.issue_qty >= item.request_qty %}text-success{% elif item.issue_qty > 0 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ item.issue_qty if item.issue_qty else 0 }}
+                            </strong>
+                            {{ item.item.default_uom.uom_name if item.item and item.item.default_uom else 'EA' }}
+                        </td>
+                        <td>
+                            {% if item.status_code == 'F' %}
+                            {{ status_badge('filled', 'Filled') }}
+                            {% elif item.status_code == 'P' %}
+                            {{ status_badge('partial', 'Partly Filled') }}
+                            {% elif item.status_code == 'L' %}
+                            {{ status_badge('limit', 'Limit Allowed') }}
+                            {% elif item.status_code == 'D' %}
+                            {{ status_badge('denied', 'Denied') }}
+                            {% elif item.status_code == 'U' %}
+                            {{ status_badge('unavailable', 'Unavailable') }}
+                            {% elif item.status_code == 'W' %}
+                            {{ status_badge('waiting', 'Waiting') }}
+                            {% else %}
+                            {{ status_badge('requested', 'Requested') }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.item_id in allocations and allocations[item.item_id] %}
+                            <ul class="mb-0 ps-3">
+                                {% for warehouse_id, qty in allocations[item.item_id].items() %}
+                                {% set warehouse = warehouses|selectattr('warehouse_id', 'equalto', warehouse_id)|first %}
+                                <li>
+                                    <strong>{{ warehouse.warehouse_name if warehouse else 'Unknown' }}:</strong> 
+                                    {{ qty }} {{ item.item.default_uom.uom_name if item.item and item.item.default_uom else 'EA' }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="text-muted">No allocations</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-flex justify-content-between align-items-center">
+        <a href="{{ url_for('packaging.pending_approval') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Cancel
+        </a>
+        <div>
+            <form method="POST" action="{{ url_for('packaging.review_approval', reliefrqst_id=relief_request.reliefrqst_id) }}" style="display: inline;">
+                <button type="submit" name="action" value="reject" class="btn btn-outline-danger me-2" disabled>
+                    <i class="bi bi-x-circle"></i> Reject (Not Implemented)
+                </button>
+                <button type="submit" name="action" value="approve_and_dispatch" class="btn btn-relief-primary">
+                    <i class="bi bi-check-circle"></i> Approve & Dispatch to Inventory Clerk
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -51,6 +51,18 @@ URGENCY_MEDIUM = 'M'
 URGENCY_LOW = 'L'
 URGENCY_CRITICAL = 'C'
 
+# Relief Package (ReliefPkg) status codes
+PKG_STATUS_PENDING = 'P'         # Pending - Package being prepared or awaiting approval
+PKG_STATUS_DISPATCHED = 'D'      # Dispatched - Package sent to inventory clerk
+PKG_STATUS_COMPLETED = 'C'       # Completed - Package received and processed
+
+# Relief Package status labels
+PKG_STATUS_LABELS = {
+    'P': 'Pending',
+    'D': 'Dispatched',
+    'C': 'Completed'
+}
+
 
 def get_workflow_steps(status_code: int) -> Dict:
     """

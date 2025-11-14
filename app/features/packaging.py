@@ -27,6 +27,170 @@ from app.core.exceptions import OptimisticLockError
 packaging_bp = Blueprint('packaging', __name__, url_prefix='/packaging')
 
 
+@packaging_bp.route('/pending-approval')
+@login_required
+def pending_approval():
+    """
+    LM approval queue - shows packages submitted by LO awaiting LM approval.
+    
+    Criteria for "Pending LM Approval":
+    - Relief Request status = SUBMITTED (approved by director, ready for fulfillment)
+    - ReliefPkg exists with status_code='P' (Pending)
+    - No active fulfillment lock (LO released lock after submission)
+    - verify_by_id is NULL (not yet approved by LM)
+    """
+    from app.core.rbac import is_logistics_manager
+    if not is_logistics_manager():
+        flash('Access denied. Only Logistics Managers can view this page.', 'danger')
+        abort(403)
+    
+    # Find all relief requests with packages awaiting LM approval
+    # Note: fulfillment_lock backref uses uselist=False, so it's either an object or None
+    all_requests = ReliefRqst.query.options(
+        joinedload(ReliefRqst.agency),
+        joinedload(ReliefRqst.eligible_event),
+        joinedload(ReliefRqst.status),
+        joinedload(ReliefRqst.items),
+        joinedload(ReliefRqst.packages),
+        joinedload(ReliefRqst.fulfillment_lock).joinedload(ReliefRequestFulfillmentLock.fulfiller)
+    ).filter(
+        ReliefRqst.status_code == rr_service.STATUS_SUBMITTED
+    ).order_by(ReliefRqst.create_dtime.desc()).all()
+    
+    # Filter to requests with packages pending LM approval
+    pending_requests = []
+    for req in all_requests:
+        # Check if there's a ReliefPkg for this request
+        relief_pkg = next((pkg for pkg in req.packages if pkg.status_code == rr_service.PKG_STATUS_PENDING), None)
+        
+        if relief_pkg and not req.fulfillment_lock and relief_pkg.verify_by_id is None:
+            # Package exists, is pending, no active lock, and not yet approved by LM
+            pending_requests.append(req)
+    
+    counts = {
+        'pending_approval': len(pending_requests)
+    }
+    
+    return render_template('packaging/pending_approval.html',
+                         requests=pending_requests,
+                         counts=counts,
+                         STATUS_SUBMITTED=rr_service.STATUS_SUBMITTED,
+                         PKG_STATUS_PENDING=rr_service.PKG_STATUS_PENDING)
+
+
+@packaging_bp.route('/<int:reliefrqst_id>/review-approval', methods=['GET', 'POST'])
+@login_required
+def review_approval(reliefrqst_id):
+    """
+    LM reviews LO-submitted package and approves for dispatch.
+    GET: Display allocations for review
+    POST: Approve and dispatch to inventory clerk
+    """
+    from app.core.rbac import is_logistics_manager
+    if not is_logistics_manager():
+        flash('Access denied. Only Logistics Managers can review and approve packages.', 'danger')
+        abort(403)
+    
+    relief_request = ReliefRqst.query.options(
+        joinedload(ReliefRqst.agency),
+        joinedload(ReliefRqst.eligible_event),
+        joinedload(ReliefRqst.status),
+        joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.category),
+        joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.default_uom),
+        joinedload(ReliefRqst.packages)
+    ).get_or_404(reliefrqst_id)
+    
+    # Get the pending ReliefPkg
+    relief_pkg = next((pkg for pkg in relief_request.packages if pkg.status_code == rr_service.PKG_STATUS_PENDING), None)
+    
+    if not relief_pkg:
+        flash('No pending package found for this relief request.', 'danger')
+        return redirect(url_for('packaging.pending_approval'))
+    
+    if relief_pkg.verify_by_id is not None:
+        flash('This package has already been approved.', 'warning')
+        return redirect(url_for('packaging.pending_approval'))
+    
+    if request.method == 'GET':
+        # Load allocations for display
+        warehouses = Warehouse.query.filter_by(status_code='A').order_by(Warehouse.warehouse_name).all()
+        
+        # Build allocation map from ReliefPkgItem
+        allocations = {}
+        for pkg_item in relief_pkg.items:
+            item_id = pkg_item.item_id
+            warehouse_id = Inventory.query.get(pkg_item.fr_inventory_id).warehouse_id
+            
+            if item_id not in allocations:
+                allocations[item_id] = {}
+            
+            allocations[item_id][warehouse_id] = pkg_item.item_qty
+        
+        return render_template('packaging/review_approval.html',
+                             relief_request=relief_request,
+                             relief_pkg=relief_pkg,
+                             warehouses=warehouses,
+                             allocations=allocations)
+    
+    # POST: Approve and dispatch
+    action = request.form.get('action')
+    
+    if action == 'approve_and_dispatch':
+        try:
+            # Verify at least one item has allocated quantity (support partial fulfillment)
+            has_allocated_items = any(item.issue_qty > 0 for item in relief_request.items)
+            if not has_allocated_items:
+                raise ValueError('Cannot dispatch package: no items have been allocated')
+            
+            # LM approval: set verify_by_id and verify_dtime
+            relief_pkg.verify_by_id = current_user.email[:20]
+            relief_pkg.verify_dtime = datetime.now()
+            
+            # Mark package as dispatched
+            relief_pkg.status_code = rr_service.PKG_STATUS_DISPATCHED
+            relief_pkg.dispatch_dtime = datetime.now()
+            relief_pkg.update_by_id = current_user.email[:20]
+            relief_pkg.update_dtime = datetime.now()
+            
+            # Commit inventory: convert reservations to actual deductions
+            success, error_msg = reservation_service.commit_inventory(relief_request.reliefrqst_id)
+            if not success:
+                raise ValueError(f'Inventory commit failed: {error_msg}')
+            
+            # Update relief request status
+            relief_request.action_by_id = current_user.email[:20]
+            relief_request.action_dtime = datetime.now()
+            relief_request.status_code = rr_service.STATUS_PART_FILLED
+            relief_request.version_nbr += 1
+            
+            # Send dispatch notification to inventory clerks (if notification system exists)
+            try:
+                if hasattr(rr_service, 'create_dispatch_notifications'):
+                    rr_service.create_dispatch_notifications(relief_request)
+            except Exception as e:
+                # Don't fail dispatch if notification fails
+                print(f'Warning: Failed to send dispatch notification: {str(e)}')
+            
+            db.session.commit()
+            
+            flash(f'Relief request #{relief_request.reliefrqst_id} approved and dispatched to inventory clerk', 'success')
+            return redirect(url_for('packaging.pending_approval'))
+            
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), 'danger')
+            return redirect(url_for('packaging.review_approval', reliefrqst_id=reliefrqst_id))
+    
+    elif action == 'reject':
+        # TODO: Implement rejection workflow (send back to LO for revision)
+        flash('Rejection workflow not yet implemented', 'info')
+        return redirect(url_for('packaging.review_approval', reliefrqst_id=reliefrqst_id))
+    
+    else:
+        flash('Invalid action', 'danger')
+        return redirect(url_for('packaging.review_approval', reliefrqst_id=reliefrqst_id))
+
+
 @packaging_bp.route('/pending-fulfillment')
 @login_required
 def pending_fulfillment():
@@ -237,7 +401,14 @@ def _save_draft(relief_request):
 
 
 def _submit_for_approval(relief_request):
-    """Submit package for Logistics Manager approval (LO only) - allows partial allocations"""
+    """
+    Submit package for Logistics Manager approval (LO only) - allows partial allocations.
+    Workflow: LO fulfills → Submit to LM → LM approves → Dispatch to Inventory Clerk
+    
+    Note: LO submission preserves any existing verify_* audit fields. The "pending LM approval"
+    state is indicated by: status_code='P' + no active lock + verify_by_id is NULL (first submission)
+    or verify_by_id has value (resubmission after previous LM approval).
+    """
     from app.core.rbac import is_logistics_officer
     if not is_logistics_officer():
         flash('Only Logistics Officers can submit for approval', 'danger')
@@ -246,6 +417,17 @@ def _submit_for_approval(relief_request):
     try:
         # Process and validate allocations
         new_allocations = _process_allocations(relief_request, validate_complete=False)
+        
+        # Get the ReliefPkg that was created/updated by _process_allocations
+        relief_pkg = ReliefPkg.query.filter_by(reliefrqst_id=relief_request.reliefrqst_id).first()
+        if not relief_pkg:
+            raise ValueError('Failed to create relief package')
+        
+        # Keep package as Pending - DO NOT modify verify_by_id (preserves audit trail)
+        # "Pending LM approval" = status_code='P' + no lock + verify_by_id is NULL or non-NULL
+        relief_pkg.status_code = rr_service.PKG_STATUS_PENDING
+        relief_pkg.update_by_id = current_user.email[:20]
+        relief_pkg.update_dtime = datetime.now()
         
         # Flush to persist allocations before calculating reservation deltas
         db.session.flush()
@@ -260,8 +442,8 @@ def _submit_for_approval(relief_request):
         if not success:
             raise ValueError(f'Reservation failed: {error_msg}')
         
-        # Don't update relief_request action fields - they're for package dispatch
-        # LO is just preparing allocations, not taking action on the request itself
+        # Notify all Logistics Managers about the pending approval
+        _notify_logistics_managers_for_approval(relief_request, current_user.email)
         
         db.session.commit()
         
@@ -277,7 +459,10 @@ def _submit_for_approval(relief_request):
 
 
 def _send_for_dispatch(relief_request):
-    """Send package for dispatch (LM only)"""
+    """
+    Send package for dispatch (LM only).
+    Workflow: LM fulfills directly → Dispatch to Inventory Clerk (bypasses approval)
+    """
     from app.core.rbac import is_logistics_manager
     if not is_logistics_manager():
         flash('Only Logistics Managers can send for dispatch', 'danger')
@@ -286,6 +471,21 @@ def _send_for_dispatch(relief_request):
     try:
         # Process and validate allocations (must be complete)
         new_allocations = _process_allocations(relief_request, validate_complete=True)
+        
+        # Get the ReliefPkg that was created/updated by _process_allocations
+        relief_pkg = ReliefPkg.query.filter_by(reliefrqst_id=relief_request.reliefrqst_id).first()
+        if not relief_pkg:
+            raise ValueError('Failed to create relief package')
+        
+        # LM approval: set verify_by_id to current LM (bypasses LO approval step)
+        relief_pkg.verify_by_id = current_user.email[:20]
+        relief_pkg.verify_dtime = datetime.now()
+        
+        # Mark package as dispatched
+        relief_pkg.status_code = rr_service.PKG_STATUS_DISPATCHED
+        relief_pkg.dispatch_dtime = datetime.now()
+        relief_pkg.update_by_id = current_user.email[:20]
+        relief_pkg.update_dtime = datetime.now()
         
         # Flush to persist allocations
         db.session.flush()
@@ -477,6 +677,32 @@ def _process_allocations(relief_request, validate_complete=False):
                 db.session.add(pkg_item)
     
     return new_allocations
+
+
+def _notify_logistics_managers_for_approval(relief_request, submitted_by_email):
+    """
+    Send notification to all Logistics Managers when an LO submits a package for approval.
+    """
+    try:
+        # Find all users with LOGISTICS_MANAGER role
+        lm_role = Role.query.filter_by(role_code='LOGISTICS_MANAGER').first()
+        if not lm_role:
+            return  # No LM role configured
+        
+        lm_users = User.query.filter_by(role_code='LOGISTICS_MANAGER', status_code='A').all()
+        
+        for lm_user in lm_users:
+            notification = Notification(
+                user_id=lm_user.user_id,
+                message=f'Relief Request #{relief_request.reliefrqst_id} (Tracking: {relief_request.tracking_no}) has been submitted by {submitted_by_email} and is awaiting your approval for dispatch.',
+                link=url_for('packaging.pending_approval', _external=False),
+                is_read=False,
+                create_dtime=datetime.now()
+            )
+            db.session.add(notification)
+    except Exception as e:
+        # Don't fail the submission if notification fails
+        print(f'Warning: Failed to send LM approval notification: {str(e)}')
 
 
 @packaging_bp.route('/<int:reliefrqst_id>/cancel', methods=['POST'])

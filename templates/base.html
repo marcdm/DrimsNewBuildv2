@@ -495,6 +495,13 @@
             <i class="bi bi-box-arrow-in-down"></i>
             <span class="nav-label">Pending Fulfillment</span>
         </a>
+        {% if is_logistics_manager() %}
+        {# LM-only: Approval queue for LO-submitted packages #}
+        <a href="{{ url_for('packaging.pending_approval') }}" class="nav-item-link {% if active_page == 'pending_approval' %}active{% endif %}">
+            <i class="bi bi-clipboard-check"></i>
+            <span class="nav-label">Pending Approval</span>
+        </a>
+        {% endif %}
         {% endif %}
         
         <div class="nav-section-header">Management</div>

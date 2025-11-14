@@ -1,0 +1,121 @@
+You are a senior full-stack engineer working on the Relief Request Fulfillment module.
+
+We need to build out the Logistics Manager (LM) workflow in the Relief Request Fulfillment Process, using the existing database schema and tables (no schema changes).
+
+Context
+
+There are currently two key roles involved in fulfillment:
+
+Logistics Officer (LO)
+
+Logistics Manager (LM)
+
+We want to refine how fulfillment and dispatch approvals work between them.
+
+Requirements
+
+Logistics Manager can fulfill orders (same as LO)
+
+The LM must be able to perform all the same fulfillment actions as the LO:
+
+View relief request details and items
+
+Enter/adjust fulfillment quantities
+
+Save fulfillment data
+
+Use the same UI patterns and validation logic already used for LO fulfillment.
+
+LM does NOT need an “Approve” button after fulfilling
+
+When the LM completes fulfillment, there should be no extra “Approve” step in the UI.
+
+After LM completes and confirms fulfillment, the workflow should allow the LM to go directly to “Dispatch to Inventory Clerk”.
+
+Implement this as:
+
+A direct action/button like “Dispatch to Inventory Clerk” available to the LM once fulfillment is complete.
+
+This action should update the request status appropriately (e.g. FULFILLED → DISPATCHED_TO_INVENTORY_CLERK) and trigger any existing notifications to the inventory clerk.
+
+All LO fulfillment must be routed to LM for approval before dispatch
+
+When a Logistics Officer (LO) completes fulfillment:
+
+They should not be able to dispatch directly to the inventory clerk.
+
+Instead, their fulfillment must be submitted to the LM for approval.
+
+Implement this as:
+
+LO has a button like “Submit for LM Approval” once fulfillment is done.
+
+This changes the status to something like PENDING_LM_APPROVAL (reuse existing status concepts if possible, don’t change schema).
+
+Generate an in-app and/or email notification for the LM so they know a fulfillment is waiting for their approval.
+
+On the LM side:
+
+LM should see a list/queue of all requests “Pending LM Approval”.
+
+For each, LM can:
+
+Review what the LO fulfilled.
+
+Approve and Dispatch to Inventory Clerk.
+
+Optionally send back or reject (if this pattern already exists, reuse it; don’t invent new DB structures).
+
+Permissions & visibility
+
+Ensure role-based behavior:
+
+LO:
+
+Can fulfill orders.
+
+Can submit fulfillment for LM approval.
+
+Cannot directly dispatch to inventory clerk.
+
+LM:
+
+Can fulfill orders (same UI as LO).
+
+When LM is fulfilling, they bypass the approval step and can directly dispatch to inventory clerk.
+
+Can review and approve LO-submitted fulfillments and then dispatch to inventory clerk.
+
+Reuse existing auth/role checks in the codebase.
+
+Do not change database schema
+
+Use existing tables, columns, and statuses.
+
+You may:
+
+Add/adjust status values using existing enums/lookup tables if already supported.
+
+Add new constants or conditions in the application logic.
+
+No new tables or columns should be created.
+
+UX & Workflow
+
+Keep the screens consistent with existing styling and patterns.
+
+Make sure the workflow is clear:
+
+LO path: Fulfill → Submit to LM → LM approves → Dispatch to Inventory Clerk.
+
+LM path: Fulfill → Directly Dispatch to Inventory Clerk.
+
+Show clear labels/status indicators (e.g. “Pending LM Approval”, “Dispatched to Inventory Clerk”).
+
+Please:
+
+Update the backend logic, routes, and permission checks to support this.
+
+Update the UI so that LO and LM see only the actions relevant to their role at each step.
+
+Write brief comments in the code explaining the new LM workflow and LO → LM approval flow.
