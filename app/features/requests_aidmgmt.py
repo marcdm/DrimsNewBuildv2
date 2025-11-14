@@ -468,10 +468,11 @@ def submit_request(request_id):
         if success:
             db.session.commit()
             flash(message, 'success')
+            return redirect(url_for('requests.view_request', request_id=request_id))
         else:
+            # Validation failed - redirect to edit items page so user can add items
             flash(message, 'warning')
-        
-        return redirect(url_for('requests.view_request', request_id=request_id))
+            return redirect(url_for('requests.edit_items', request_id=request_id))
         
     except OptimisticLockError as e:
         db.session.rollback()
