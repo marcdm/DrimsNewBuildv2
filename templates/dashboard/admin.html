@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% from 'relief_requests/_summary_cards.html' import render_summary_cards %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/relief-requests-ui.css') }}">
+{% endblock %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="page-header mb-0">
+            <div class="page-title">
+                <i class="bi bi-gear-fill page-title-icon"></i>
+                <h1 class="page-title-text">System Administration</h1>
+            </div>
+            <p class="page-subtitle">Welcome back, {{ current_user.first_name }}! Manage DRIMS system</p>
+        </div>
+        {% if has_feature('user_management') %}
+        <a href="{{ url_for('user_admin.list_users') }}" class="btn btn-relief-primary">
+            <i class="bi bi-person-gear me-2"></i>
+            Manage Users
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Summary Metrics -->
+    {% set summary_metrics = [
+        {
+            'icon': 'people',
+            'label': 'Total Users',
+            'value': total_users or 0,
+            'variant': 'primary'
+        },
+        {
+            'icon': 'building',
+            'label': 'Active Agencies',
+            'value': total_agencies or 0,
+            'variant': 'info'
+        },
+        {
+            'icon': 'boxes',
+            'label': 'Warehouses',
+            'value': total_warehouses or 0,
+            'variant': 'success'
+        },
+        {
+            'icon': 'tag',
+            'label': 'Relief Items',
+            'value': total_items or 0,
+            'variant': 'warning'
+        }
+    ] %}
+    {{ render_summary_cards(summary_metrics) }}
+
+    <!-- System Overview Grid -->
+    <div class="row mt-4">
+        <!-- Recent Activity Column -->
+        <div class="col-lg-8 mb-4">
+            <div class="drims-card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Recent Relief Requests
+                    </h5>
+                    {% if recent_requests %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Request #</th>
+                                    <th>Agency</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in recent_requests[:10] %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('requests.view_request', request_id=req.reliefrqst_id) }}">
+                                            RR-{{ '%06d'|format(req.reliefrqst_id) }}
+                                        </a>
+                                    </td>
+                                    <td>{{ req.agency.agency_name if req.agency else 'N/A' }}</td>
+                                    <td>{{ req.create_dtime.strftime('%b %d, %Y') if req.create_dtime else 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ req.status.status_desc if req.status else 'N/A' }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No recent requests</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Links Column -->
+        <div class="col-lg-4 mb-4">
+            <div class="drims-card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="bi bi-lightning-fill me-2"></i>
+                        Quick Links
+                    </h5>
+                    <div class="d-grid gap-2">
+                        {% if has_feature('user_management') %}
+                        <a href="{{ url_for('user_admin.list_users') }}" class="btn btn-relief-secondary btn-sm text-start">
+                            <i class="bi bi-person-gear me-2"></i> Manage Users
+                        </a>
+                        {% endif %}
+                        {% if has_feature('agency_management') %}
+                        <a href="{{ url_for('agencies.list_agencies') }}" class="btn btn-relief-secondary btn-sm text-start">
+                            <i class="bi bi-building me-2"></i> Manage Agencies
+                        </a>
+                        {% endif %}
+                        {% if has_feature('warehouse_management') %}
+                        <a href="{{ url_for('warehouses.list_warehouses') }}" class="btn btn-relief-secondary btn-sm text-start">
+                            <i class="bi bi-geo-alt me-2"></i> Manage Warehouses
+                        </a>
+                        {% endif %}
+                        {% if has_feature('item_catalog') %}
+                        <a href="{{ url_for('items.list_items') }}" class="btn btn-relief-secondary btn-sm text-start">
+                            <i class="bi bi-tag me-2"></i> Manage Items
+                        </a>
+                        {% endif %}
+                        {% if has_feature('event_management') %}
+                        <a href="{{ url_for('events.list_events') }}" class="btn btn-relief-secondary btn-sm text-start">
+                            <i class="bi bi-calendar-event me-2"></i> Manage Events
+                        </a>
+                        {% endif %}
+                        {% if has_feature('reports_main') %}
+                        <a href="{{ url_for('reports.index') }}" class="btn btn-relief-secondary btn-sm text-start">
+                            <i class="bi bi-file-earmark-bar-graph me-2"></i> View Reports
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Users -->
+            {% if recent_users %}
+            <div class="drims-card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title mb-3">
+                        <i class="bi bi-person-plus me-2"></i>
+                        Recently Added Users
+                    </h6>
+                    <div class="small">
+                        {% for user in recent_users[:5] %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div>
+                                <div class="fw-bold">{{ user.first_name }} {{ user.last_name }}</div>
+                                <div class="text-muted">{{ user.email }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
