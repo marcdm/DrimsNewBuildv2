@@ -95,11 +95,22 @@ Preferred communication style: Simple, everyday language.
     - Multi-warehouse allocation: Shows all warehouses with stock for each item
     - Real-time calculations: Allocated totals, remaining quantities, and status badges update automatically
     - Inline inventory validation: Prevents over-allocation beyond available stock
-    - Allocation status tracking: Unallocated (U), Partially Allocated (P), Fully Allocated (F)
+    - **Dynamic Item Status Validation**: Comprehensive status dropdown with intelligent validation:
+      - 7 status codes (R=Requested, U=Unavailable, W=Awaiting, D=Denied, P=Partial, L=Allowed Limit, F=Filled)
+      - Automatic status updates based on allocation (0→R, partial→P, full→F)
+      - Manual status changes with dynamic dropdown options (P→{P,L}, F locked, zero→{D,U,W})
+      - Client-side validation with real-time error feedback
+      - Server-side validation enforces quantity limits and status transition rules
+      - Status preservation prevents discarding legitimate manual statuses during recalculation
     - 4-step workflow sidebar: Submitted → Prepare → Approval → Execute/Dispatch
     - Lock management: Prevents concurrent editing with lock acquisition/release
-    - Role-based actions: Save Draft (all), Submit for Approval (LO), Send for Dispatch (LM)
+    - Role-based actions: Save Draft (all), Submit for Approval (LO), Send for Dispatch (LM), Cancel
   - **Data Persistence**: Allocations saved to `ReliefPkg` and `ReliefPkgItem` tables, pre-populated on page load
+  - **Item Status Service** (`app/services/item_status_service.py`): Centralized service for status validation:
+    - `load_status_map()`: Cached lookup of active status codes with force reload support
+    - `compute_allowed_statuses()`: Computes allowed status transitions based on allocation state
+    - `validate_status_transition()`: Validates manual status changes against business rules
+    - `validate_quantity_limit()`: Validates allocated quantities against request limits
 
 ## External Dependencies
 
