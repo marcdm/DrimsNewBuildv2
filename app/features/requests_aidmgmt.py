@@ -438,6 +438,40 @@ def save_draft(request_id):
         return redirect(url_for('requests.edit_items', request_id=request_id))
 
 
+@requests_bp.route('/<int:request_id>/cancel', methods=['POST'])
+@login_required
+@agency_user_required
+def cancel_request(request_id):
+    """Cancel and delete a draft relief request"""
+    relief_request = ReliefRqst.query.get_or_404(request_id)
+    
+    # Verify ownership
+    if relief_request.agency_id != current_user.agency_id:
+        flash('You do not have permission to cancel this request.', 'danger')
+        abort(403)
+    
+    # Only allow cancelling draft requests
+    if relief_request.status_code != rr_service.STATUS_DRAFT:
+        flash('Only draft requests can be cancelled. This request has already been submitted.', 'warning')
+        return redirect(url_for('requests.view_request', request_id=request_id))
+    
+    try:
+        # Delete all items first (due to foreign key constraints)
+        ReliefRqstItem.query.filter_by(reliefrqst_id=request_id).delete()
+        
+        # Delete the request
+        db.session.delete(relief_request)
+        db.session.commit()
+        
+        flash(f'Draft relief request #{request_id} has been cancelled and deleted.', 'info')
+        return redirect(url_for('requests.my_requests'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error cancelling request: {str(e)}', 'danger')
+        return redirect(url_for('requests.view_request', request_id=request_id))
+
+
 @requests_bp.route('/<int:request_id>/submit', methods=['POST'])
 @login_required
 @agency_user_required

@@ -243,6 +243,14 @@
                             <i class="bi bi-eye"></i>
                             View Request
                         </a>
+                        {% if request.status_code == 0 %}
+                        <form method="POST" action="{{ url_for('requests.cancel_request', request_id=request.reliefrqst_id) }}" style="display: inline;" id="cancelForm">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-x-circle"></i>
+                                Cancel & Delete Draft
+                            </button>
+                        </form>
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}
@@ -317,6 +325,17 @@ const submitForm = document.getElementById('submitForm');
 if (submitForm) {
     submitForm.addEventListener('submit', function(e) {
         if (!confirm('Submit this request to ODPEM? You will not be able to edit items after submission.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+}
+
+// Cancel form confirmation
+const cancelForm = document.getElementById('cancelForm');
+if (cancelForm) {
+    cancelForm.addEventListener('submit', function(e) {
+        if (!confirm('Cancel and delete this draft request? This action cannot be undone and all items will be lost.')) {
             e.preventDefault();
             return false;
         }
