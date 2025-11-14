@@ -7,8 +7,6 @@
     border: 1px solid #dee2e6;
     border-radius: 0.5rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    position: sticky;
-    top: 1.25rem;
     overflow: hidden;
 }
 

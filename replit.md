@@ -39,7 +39,7 @@ Preferred communication style: Simple, everyday language.
     - White card background with blue header bar (#007bff)
     - Green checkmarks (#28a745) for completed steps with vertical connecting lines
     - Blue active step indicator, white circles with green borders for pending steps
-    - Sticky positioning (`position: sticky; top: 1.25rem`) - sidebar doesn't move when scrolling on desktop
+    - Normal scrolling behavior - sidebar scrolls with page content
     - Optional completion message box at bottom for workflow status updates
     - Backward compatible macro supporting both global completion flag and step-by-step completion
   - **Status Badges**: Color-coded badges for status and priority levels
