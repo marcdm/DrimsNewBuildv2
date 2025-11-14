@@ -35,9 +35,9 @@ def pending_approval():
     
     Criteria for "Pending LM Approval":
     - Relief Request status = SUBMITTED (approved by director, ready for fulfillment)
-    - ReliefPkg exists with status_code='P' (Pending)
+    - ReliefPkg exists with status_code='P' (Pending - submitted for approval)
     - No active fulfillment lock (LO released lock after submission)
-    - verify_by_id is NULL (not yet approved by LM)
+    - Not yet dispatched (dispatch_dtime is NULL)
     """
     from app.core.rbac import is_logistics_manager
     if not is_logistics_manager():
@@ -60,11 +60,11 @@ def pending_approval():
     # Filter to requests with packages pending LM approval
     pending_requests = []
     for req in all_requests:
-        # Check if there's a ReliefPkg for this request
+        # Check if there's a ReliefPkg for this request with status='P' (submitted for approval)
         relief_pkg = next((pkg for pkg in req.packages if pkg.status_code == rr_service.PKG_STATUS_PENDING), None)
         
-        if relief_pkg and not req.fulfillment_lock and relief_pkg.verify_by_id is None:
-            # Package exists, is pending, no active lock, and not yet approved by LM
+        if relief_pkg and not req.fulfillment_lock and relief_pkg.dispatch_dtime is None:
+            # Package exists, is pending approval, no active lock, and not yet dispatched
             pending_requests.append(req)
     
     counts = {
@@ -107,8 +107,8 @@ def review_approval(reliefrqst_id):
         flash('No pending package found for this relief request.', 'danger')
         return redirect(url_for('packaging.pending_approval'))
     
-    if relief_pkg.verify_by_id is not None:
-        flash('This package has already been approved.', 'warning')
+    if relief_pkg.dispatch_dtime is not None:
+        flash('This package has already been dispatched.', 'warning')
         return redirect(url_for('packaging.pending_approval'))
     
     if request.method == 'GET':
@@ -528,6 +528,8 @@ def _process_allocations(relief_request, validate_complete=False):
     relief_pkg = ReliefPkg.query.filter_by(reliefrqst_id=relief_request.reliefrqst_id).first()
     if not relief_pkg:
         # Create a new relief package for tracking allocations
+        # Note: verify_by_id tracks package creator (LO/LM), updated to LM approver on dispatch
+        # Pending approval distinguished by: status='P' + dispatch_dtime IS NULL
         relief_pkg = ReliefPkg(
             reliefrqst_id=relief_request.reliefrqst_id,
             to_inventory_id=1,  # Placeholder, will be updated on dispatch
@@ -537,8 +539,8 @@ def _process_allocations(relief_request, validate_complete=False):
             create_dtime=datetime.now(),
             update_by_id=current_user.email[:20],
             update_dtime=datetime.now(),
-            verify_by_id=current_user.email[:20],
-            received_by_id=current_user.email[:20],
+            verify_by_id=current_user.email[:20],  # Required (NOT NULL) - tracks creator until LM approval
+            received_by_id=current_user.email[:20],  # Required (NOT NULL)
             version_nbr=1
         )
         db.session.add(relief_pkg)
