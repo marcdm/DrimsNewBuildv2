@@ -12,10 +12,14 @@ from app.core.audit import add_audit_fields
 
 items_bp = Blueprint('items', __name__, url_prefix='/items')
 
-def get_or_create_uom(uom_value, user_email):
+def get_or_create_uom(uom_value, user):
     """
     Get existing UOM or create a new one if it doesn't exist.
     Returns the UOM code (uppercase).
+    
+    Args:
+        uom_value: The UOM value to create
+        user: User object (for audit fields)
     """
     # Validate and clean the UOM value
     uom_value = uom_value.strip()
@@ -38,7 +42,7 @@ def get_or_create_uom(uom_value, user_email):
     new_uom.uom_code = uom_code
     new_uom.uom_desc = uom_code  # Use code as description for custom UOMs
     new_uom.comments_text = 'Custom UOM created by user'
-    add_audit_fields(new_uom, user_email, is_new=True)
+    add_audit_fields(new_uom, user, is_new=True)
     
     db.session.add(new_uom)
     # Don't commit here - will be committed with the item
@@ -79,7 +83,7 @@ def create_item():
                     uoms = UnitOfMeasure.query.order_by(UnitOfMeasure.uom_desc).all()
                     return render_template('items/create.html', categories=categories, uoms=uoms)
                 # Create new UOM entry
-                uom_code = get_or_create_uom(uom_value, current_user.email)
+                uom_code = get_or_create_uom(uom_value, current_user)
             elif uom_select:
                 # User selected a standard UOM from dropdown
                 uom_code = uom_select

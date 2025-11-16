@@ -42,7 +42,7 @@ def create():
     
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        user_name = request.form.get('user_name', '').strip().upper()
+        user_name = request.form.get('user_name', '').strip().upper()[:20]
         password = request.form.get('password', '')
         first_name = request.form.get('first_name', '').strip()
         last_name = request.form.get('last_name', '').strip()
@@ -234,7 +234,7 @@ def edit(user_id):
                                  user_warehouse_ids=user_warehouse_ids,
                                  current_org_value=current_org_value)
         
-        user_name = request.form.get('user_name', '').strip().upper()
+        user_name = request.form.get('user_name', '').strip().upper()[:20]
         first_name = request.form.get('first_name', '').strip()
         last_name = request.form.get('last_name', '').strip()
         organization_value = request.form.get('organization', '').strip()

@@ -14,7 +14,7 @@ class User(UserMixin, db.Model):
     user_id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(200), unique=True, nullable=False)
     username = db.Column(db.String(60), unique=True)
-    user_name = db.Column(db.String(20), nullable=True)
+    user_name = db.Column(db.String(20), nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     password_algo = db.Column(db.String(20), nullable=False, default='argon2id')
     first_name = db.Column(db.String(100))
