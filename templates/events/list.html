@@ -1,76 +1,115 @@
 {% extends 'base.html' %}
 
-{% block title %}Events{% endblock %}
+{% block title %}Disaster Events{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <h2 class="text-goj-green"><i class="bi bi-exclamation-triangle"></i> Disaster Events</h2>
+<div class="page-container">
+    <div class="page-header-modern">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="text-goj-green mb-1">
+                    <i class="bi bi-calendar-event"></i> Disaster Events
+                </h2>
+                <p class="text-muted mb-0">Manage disaster event lifecycle and tracking</p>
+            </div>
+            <div>
+                <a href="{{ url_for('events.create_event') }}" class="btn btn-goj">
+                    <i class="bi bi-plus-circle"></i> Create Event
+                </a>
+            </div>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="{{ url_for('events.create_event') }}" class="btn btn-goj">
-                <i class="bi bi-plus-circle"></i> Create Event
-            </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('events.list_events') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label for="event_type" class="form-label">Event Type</label>
+                    <select class="form-select" id="event_type" name="event_type" onchange="this.form.submit()">
+                        <option value="">All Types</option>
+                        {% for event_type in event_types %}
+                        <option value="{{ event_type }}" {% if event_type_filter == event_type %}selected{% endif %}>
+                            {{ event_type }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status" onchange="this.form.submit()">
+                        <option value="">All Statuses</option>
+                        <option value="A" {% if status_filter == 'A' %}selected{% endif %}>Active</option>
+                        <option value="C" {% if status_filter == 'C' %}selected{% endif %}>Closed</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="search" class="form-label">Search</label>
+                    <input type="text" class="form-control" id="search" name="search" value="{{ search_query }}" placeholder="Search...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2"><i class="bi bi-search"></i></button>
+                    <a href="{{ url_for('events.list_events') }}" class="btn btn-outline-secondary"><i class="bi bi-x-circle"></i></a>
+                </div>
+            </form>
         </div>
     </div>
 
     <div class="card">
-        <div class="card-header">
-            <ul class="nav nav-tabs card-header-tabs">
-                <li class="nav-item">
-                    <a class="nav-link {% if status_filter == 'all' %}active{% endif %}" href="{{ url_for('events.list_events') }}">All</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if status_filter == 'active' %}active{% endif %}" href="{{ url_for('events.list_events', status='active') }}">Active</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if status_filter == 'closed' %}active{% endif %}" href="{{ url_for('events.list_events', status='closed') }}">Closed</a>
-                </li>
-            </ul>
-        </div>
         <div class="card-body">
-            <div class="table-responsive-mobile">
-                <table class="table table-hover">
+            {% if events %}
+            <div class="table-responsive">
+                <table class="table modern-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Name</th>
+                            <th>Event Name</th>
                             <th>Type</th>
                             <th>Start Date</th>
                             <th>Status</th>
+                            <th>Closed Date</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for event in events %}
                         <tr>
-                            <td>{{ event.event_id }}</td>
-                            <td>{{ event.event_name }}</td>
-                            <td><span class="badge bg-secondary">{{ event.event_type }}</span></td>
-                            <td>{{ event.start_date }}</td>
                             <td>
-                                <span class="badge bg-{{ event.status_code|status_badge('event') }}">
-                                    {{ event.status_code|status_label('event') }}
-                                </span>
+                                <a href="{{ url_for('events.view_event', event_id=event.event_id) }}" class="text-decoration-none">
+                                    <strong>{{ event.event_name }}</strong>
+                                </a>
+                                <br>
+                                <small class="text-muted">{{ event.event_desc[:100] }}{% if event.event_desc|length > 100 %}...{% endif %}</small>
                             </td>
+                            <td><span class="badge bg-secondary">{{ event.event_type }}</span></td>
+                            <td>{{ event.start_date.strftime('%b %d, %Y') }}</td>
                             <td>
                                 {% if event.status_code == 'A' %}
-                                <form method="POST" action="{{ url_for('events.close_event', event_id=event.event_id) }}" style="display:inline;" onsubmit="return confirm('Close this event?');">
-                                    <input type="hidden" name="reason_desc" value="Closed by user">
-                                    <button type="submit" class="btn btn-sm btn-warning">Close</button>
-                                </form>
+                                <span class="status-badge-success"><i class="bi bi-check-circle"></i> Active</span>
+                                {% else %}
+                                <span class="status-badge-secondary"><i class="bi bi-lock"></i> Closed</span>
                                 {% endif %}
                             </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center text-muted">No events found</td>
+                            <td>
+                                {% if event.closed_date %}{{ event.closed_date.strftime('%b %d, %Y') }}{% else %}<span class="text-muted">—</span>{% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('events.view_event', event_id=event.event_id) }}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
+                                    <a href="{{ url_for('events.edit_event', event_id=event.event_id) }}" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="bi bi-calendar-x"></i>
+                <h3>No Events Found</h3>
+                <p>No events match your filters.</p>
+                <a href="{{ url_for('events.create_event') }}" class="btn btn-goj"><i class="bi bi-plus-circle"></i> Create Event</a>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

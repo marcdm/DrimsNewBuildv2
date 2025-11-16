@@ -27,7 +27,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db import db
 from app.db.models import Event
-from app.core.decorators import require_feature
+from app.core.decorators import feature_required
 from app.core.audit import add_audit_fields
 
 events_bp = Blueprint('events', __name__, url_prefix='/events')
@@ -84,50 +84,51 @@ def validate_event_data(form_data, is_update=False):
     if not impact_desc:
         errors['impact_desc'] = 'Impact description is required'
     
-    # Status Code validation
-    if not status_code:
-        errors['status_code'] = 'Status is required'
-    elif status_code not in STATUS_CODES:
-        errors['status_code'] = f'Status must be A (Active) or C (Closed)'
-    
-    # Closed Date and Reason validation (interdependent rules)
-    closed_date_str = form_data.get('closed_date', '').strip()
-    reason_desc = form_data.get('reason_desc', '').strip()
-    
-    if status_code == 'C':
-        # Closed event must have closed_date
-        if not closed_date_str:
-            errors['closed_date'] = 'Closed date is required for closed events'
-        else:
-            try:
-                closed_date = datetime.strptime(closed_date_str, '%Y-%m-%d').date()
-                # Closed date must not be earlier than start date
-                if start_date_str:
-                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-                    if closed_date < start_date:
-                        errors['closed_date'] = 'Closed date cannot be earlier than start date'
-            except ValueError:
-                errors['closed_date'] = 'Invalid date format'
+    # Status Code validation (only for create operations)
+    if not is_update:
+        if not status_code:
+            errors['status_code'] = 'Status is required'
+        elif status_code not in STATUS_CODES:
+            errors['status_code'] = f'Status must be A (Active) or C (Closed)'
         
-        # Closed event must have reason_desc
-        if not reason_desc:
-            errors['reason_desc'] = 'Reason for closure is required for closed events'
-        elif len(reason_desc) > 255:
-            errors['reason_desc'] = 'Reason must not exceed 255 characters'
-    
-    elif status_code == 'A':
-        # Active event must NOT have closed_date or reason_desc
-        if closed_date_str:
-            errors['closed_date'] = 'Active events cannot have a closed date'
-        if reason_desc:
-            errors['reason_desc'] = 'Active events cannot have a closure reason'
+        # Closed Date and Reason validation (interdependent rules) - only for create
+        closed_date_str = form_data.get('closed_date', '').strip()
+        reason_desc = form_data.get('reason_desc', '').strip()
+        
+        if status_code == 'C':
+            # Closed event must have closed_date
+            if not closed_date_str:
+                errors['closed_date'] = 'Closed date is required for closed events'
+            else:
+                try:
+                    closed_date = datetime.strptime(closed_date_str, '%Y-%m-%d').date()
+                    # Closed date must not be earlier than start date
+                    if start_date_str:
+                        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                        if closed_date < start_date:
+                            errors['closed_date'] = 'Closed date cannot be earlier than start date'
+                except ValueError:
+                    errors['closed_date'] = 'Invalid date format'
+            
+            # Closed event must have reason_desc
+            if not reason_desc:
+                errors['reason_desc'] = 'Reason for closure is required for closed events'
+            elif len(reason_desc) > 255:
+                errors['reason_desc'] = 'Reason must not exceed 255 characters'
+        
+        elif status_code == 'A':
+            # Active event must NOT have closed_date or reason_desc
+            if closed_date_str:
+                errors['closed_date'] = 'Active events cannot have a closed date'
+            if reason_desc:
+                errors['reason_desc'] = 'Active events cannot have a closure reason'
     
     return (len(errors) == 0, errors)
 
 
 @events_bp.route('/')
 @login_required
-@require_feature('event_management')
+@feature_required('event_management')
 def list_events():
     """List all events with filtering"""
     # Get filter parameters
@@ -169,12 +170,16 @@ def list_events():
 
 @events_bp.route('/create', methods=['GET', 'POST'])
 @login_required
-@require_feature('event_management')
+@feature_required('event_management')
 def create_event():
     """Create new event"""
     if request.method == 'POST':
+        # Prepare form data with default status for new events
+        form_data = request.form.to_dict()
+        form_data['status_code'] = 'A'
+        
         # Validate form data
-        is_valid, errors = validate_event_data(request.form)
+        is_valid, errors = validate_event_data(form_data)
         
         if not is_valid:
             # Show validation errors
@@ -185,6 +190,7 @@ def create_event():
             return render_template(
                 'events/create.html',
                 event_types=EVENT_TYPES,
+                today=date.today().strftime('%Y-%m-%d'),
                 form_data=request.form,
                 errors=errors
             )
@@ -197,17 +203,9 @@ def create_event():
             event.event_name = request.form.get('event_name').strip()
             event.event_desc = request.form.get('event_desc').strip()
             event.impact_desc = request.form.get('impact_desc').strip()
-            event.status_code = request.form.get('status_code').strip()
-            
-            # Handle closed event fields
-            closed_date_str = request.form.get('closed_date', '').strip()
-            if closed_date_str:
-                event.closed_date = datetime.strptime(closed_date_str, '%Y-%m-%d').date()
-            else:
-                event.closed_date = None
-            
-            reason_desc = request.form.get('reason_desc', '').strip()
-            event.reason_desc = reason_desc if reason_desc else None
+            event.status_code = 'A'
+            event.closed_date = None
+            event.reason_desc = None
             
             # Audit fields
             add_audit_fields(event, current_user.email, is_new=True)
@@ -224,16 +222,21 @@ def create_event():
             return render_template(
                 'events/create.html',
                 event_types=EVENT_TYPES,
+                today=date.today().strftime('%Y-%m-%d'),
                 form_data=request.form
             )
     
     # GET request
-    return render_template('events/create.html', event_types=EVENT_TYPES)
+    return render_template(
+        'events/create.html',
+        event_types=EVENT_TYPES,
+        today=date.today().strftime('%Y-%m-%d')
+    )
 
 
 @events_bp.route('/<int:event_id>')
 @login_required
-@require_feature('event_management')
+@feature_required('event_management')
 def view_event(event_id):
     """View event details"""
     event = Event.query.get_or_404(event_id)
@@ -242,10 +245,15 @@ def view_event(event_id):
 
 @events_bp.route('/<int:event_id>/edit', methods=['GET', 'POST'])
 @login_required
-@require_feature('event_management')
+@feature_required('event_management')
 def edit_event(event_id):
     """Edit existing event with optimistic locking"""
     event = Event.query.get_or_404(event_id)
+    
+    # Prevent editing closed events
+    if event.status_code == 'C':
+        flash('Closed events cannot be edited', 'warning')
+        return redirect(url_for('events.view_event', event_id=event_id))
     
     if request.method == 'POST':
         # Optimistic locking check
@@ -267,36 +275,45 @@ def edit_event(event_id):
                 'events/edit.html',
                 event=event,
                 event_types=EVENT_TYPES,
+                today=date.today().strftime('%Y-%m-%d'),
                 errors=errors
             )
         
         try:
-            # Update event fields
-            event.event_type = request.form.get('event_type').strip()
-            event.start_date = datetime.strptime(request.form.get('start_date').strip(), '%Y-%m-%d').date()
-            event.event_name = request.form.get('event_name').strip()
-            event.event_desc = request.form.get('event_desc').strip()
-            event.impact_desc = request.form.get('impact_desc').strip()
-            event.status_code = request.form.get('status_code').strip()
+            # Issue fresh SELECT with row lock to prevent concurrent modifications
+            fresh_event = db.session.query(Event).filter_by(event_id=event_id).with_for_update().first()
             
-            # Handle closed event fields
-            closed_date_str = request.form.get('closed_date', '').strip()
-            if closed_date_str:
-                event.closed_date = datetime.strptime(closed_date_str, '%Y-%m-%d').date()
-            else:
-                event.closed_date = None
+            if not fresh_event:
+                flash('Event not found', 'danger')
+                return redirect(url_for('events.list_events'))
             
-            reason_desc = request.form.get('reason_desc', '').strip()
-            event.reason_desc = reason_desc if reason_desc else None
+            # Check version against fresh database state
+            if submitted_version != fresh_event.version_nbr:
+                db.session.rollback()
+                flash('This record has been modified by another user. Please reload before updating.', 'warning')
+                return redirect(url_for('events.view_event', event_id=event_id))
+            
+            # Check status against fresh database state
+            if fresh_event.status_code == 'C':
+                db.session.rollback()
+                flash('This event was closed by another user. Changes cannot be saved.', 'warning')
+                return redirect(url_for('events.view_event', event_id=event_id))
+            
+            # Update event fields using the freshly queried instance
+            fresh_event.event_type = request.form.get('event_type').strip()
+            fresh_event.start_date = datetime.strptime(request.form.get('start_date').strip(), '%Y-%m-%d').date()
+            fresh_event.event_name = request.form.get('event_name').strip()
+            fresh_event.event_desc = request.form.get('event_desc').strip()
+            fresh_event.impact_desc = request.form.get('impact_desc').strip()
             
             # Update audit fields (version_nbr auto-increments via SQLAlchemy)
-            event.update_by_id = current_user.email
-            event.update_dtime = datetime.now()
-            event.version_nbr += 1
+            fresh_event.update_by_id = current_user.email
+            fresh_event.update_dtime = datetime.now()
+            fresh_event.version_nbr += 1
             
             db.session.commit()
             
-            flash(f'Event "{event.event_name}" updated successfully', 'success')
+            flash(f'Event "{fresh_event.event_name}" updated successfully', 'success')
             return redirect(url_for('events.view_event', event_id=event_id))
             
         except Exception as e:
@@ -309,45 +326,55 @@ def edit_event(event_id):
             )
     
     # GET request
-    return render_template('events/edit.html', event=event, event_types=EVENT_TYPES)
+    return render_template(
+        'events/edit.html',
+        event=event,
+        event_types=EVENT_TYPES,
+        today=date.today().strftime('%Y-%m-%d')
+    )
 
 
 @events_bp.route('/<int:event_id>/close', methods=['POST'])
 @login_required
-@require_feature('event_management')
+@feature_required('event_management')
 def close_event(event_id):
-    """Close an active event"""
-    event = Event.query.get_or_404(event_id)
-    
-    if event.status_code == 'C':
-        flash('Event is already closed', 'warning')
-        return redirect(url_for('events.view_event', event_id=event_id))
-    
-    # Get closure data from form
-    closed_date_str = request.form.get('closed_date', '').strip()
+    """Close an active event with concurrent modification protection"""
+    # Get reason from form
     reason_desc = request.form.get('reason_desc', '').strip()
     
     # Validation
-    errors = []
-    if not closed_date_str:
-        errors.append('Closed date is required')
     if not reason_desc:
-        errors.append('Reason for closure is required')
-    
-    if errors:
-        for error in errors:
-            flash(error, 'danger')
+        flash('Reason for closure is required', 'danger')
         return redirect(url_for('events.view_event', event_id=event_id))
     
     try:
-        closed_date = datetime.strptime(closed_date_str, '%Y-%m-%d').date()
+        # Parse and validate closed_date inside try block
+        closed_date_str = request.form.get('closed_date', '').strip()
+        if not closed_date_str:
+            closed_date = date.today()
+        else:
+            closed_date = datetime.strptime(closed_date_str, '%Y-%m-%d').date()
+        
+        # Issue fresh SELECT with row lock to prevent concurrent modifications
+        event = db.session.query(Event).filter_by(event_id=event_id).with_for_update().first()
+        
+        if not event:
+            flash('Event not found', 'danger')
+            return redirect(url_for('events.list_events'))
+        
+        # Check if already closed
+        if event.status_code == 'C':
+            db.session.rollback()
+            flash('Event is already closed', 'warning')
+            return redirect(url_for('events.view_event', event_id=event_id))
         
         # Validate closed_date is not before start_date
         if closed_date < event.start_date:
+            db.session.rollback()
             flash('Closed date cannot be earlier than start date', 'danger')
             return redirect(url_for('events.view_event', event_id=event_id))
         
-        # Update event
+        # Close the event
         event.status_code = 'C'
         event.closed_date = closed_date
         event.reason_desc = reason_desc
@@ -371,7 +398,7 @@ def close_event(event_id):
 
 @events_bp.route('/<int:event_id>/delete', methods=['POST'])
 @login_required
-@require_feature('event_management')
+@feature_required('event_management')
 def delete_event(event_id):
     """Delete event (only if not referenced)"""
     event = Event.query.get_or_404(event_id)

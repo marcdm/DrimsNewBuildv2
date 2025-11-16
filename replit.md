@@ -3,7 +3,7 @@
 ## Overview
 DRIMS (Disaster Relief Inventory Management System) is a web-based platform for the Government of Jamaica's ODPEM, designed to manage the full lifecycle of disaster relief supplies. It ensures compliance with government processes using the `aidmgmt-3.sql` schema. The system streamlines inventory tracking, donation management, relief request processing, and distribution across multiple warehouses, supporting disaster event coordination and supply allocation. It includes user administration with RBAC, donor/agency/custodian management, inventory transfers, location tracking, analytics, reporting, and robust security features.
 
-**Key Achievements (Phases 1-10 Complete - November 14, 2025):**
+**Key Achievements (Phases 1-11 Complete - November 16, 2025):**
 - ✅ Comprehensive role-based access control with 26 features mapped to 10 verified database roles
 - ✅ 6 specialized dashboards with modern UI for different user roles
 - ✅ Dynamic navigation system that adapts to user permissions
@@ -20,6 +20,7 @@ DRIMS (Disaster Relief Inventory Management System) is a web-based platform for 
 - ✅ Notification system complete redesign with modern UI matching user management patterns: 6 metric cards, filter tabs (All/Unread/Read/Today/This Week/Low Stock), reusable macros for notification cards and icons, dedicated CSS file (notifications-ui.css), offcanvas bell dropdown with dynamic loading, clear all modal, individual delete functionality, and WCAG 2.1 AA accessibility features
 - ✅ User management complete redesign with modern UI, metrics dashboard, tabbed profiles, security indicators, and accessibility features
 - ✅ User model enhanced with `is_locked` property and compatibility aliases for template field names
+- ✅ **Event Management Module Complete** (November 16, 2025): Full CRUD operations for disaster events with CUSTODIAN role support, 5 EVENT permissions (CREATE/VIEW/UPDATE/DELETE/CLOSE), modern UI templates (list/create/view/edit) with Quill rich text editor for impact descriptions, comprehensive validation (8 event types, date constraints, status transitions), optimistic locking with `version_nbr` and row-level locking (`with_for_update()`), closed event immutability enforcement, FK deletion checks, audit trail tracking, filters/search functionality, and WCAG 2.1 AA accessibility compliance
 
 ## User Preferences
 - **Communication style**: Simple, everyday language.
