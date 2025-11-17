@@ -1,0 +1,407 @@
+You are a senior full-stack engineer.
+
+Help me build / improve the “Prepare Relief Package” page in my DRIMS web app so that it:
+
+Matches the look & feel of the attached screenshot.
+
+Supports allocation by warehouse and by batch, using FEFO/FIFO rules based on item flags.
+
+Uses a side drawer UI for batch selection.
+
+Tech / constraints
+
+Stack: Python + Flask + Jinja templates + PostgreSQL.
+
+The DRIMS database schema already exists (see drms-2.1.sql).
+Do NOT change the database schema or column types.
+
+Use existing tables such as (names may already exist in schema):
+
+reliefrqst, reliefrqst_item
+
+reliefpkg, reliefpkg_item
+
+item (with flags: is_batched_flag, can_expire_flag, issuance_order)
+
+inventory (usable/reserved stock per warehouse)
+
+itembatch (batch_id, batch_no, batch_date, expiry_date, usable_qty, reserved_qty, status_code, etc.)
+
+warehouse (or equivalent)
+
+Assume authentication already exists and we can identify the current user and their role
+(Logistics Officer, Logistics Manager, Inventory Clerk).
+
+Main goal
+
+Implement a Prepare Relief Package workflow page for a given relief request that:
+
+Allows a Logistics Officer or Logistics Manager to allocate stock:
+
+By warehouse and, where applicable, by batch.
+
+Enforces:
+
+FEFO/FIFO style rules based on item configuration,
+
+Quantity limits,
+
+Expiry rules,
+
+Item status rules (Requested / Partly Filled / Filled / etc.).
+
+Has the same general layout and styling as the provided screenshot, including:
+
+Top summary tiles,
+
+Central item list,
+
+Right-hand workflow progress panel,
+
+Footer action buttons.
+
+For batched items, uses a slide-in side drawer for selecting and allocating batches.
+
+Routes & high-level behaviour
+
+Create or update a Flask blueprint (e.g. relief_pkg):
+
+GET /relief-requests/<reliefrqst_id>/prepare
+
+Loads the Prepare Relief Package page for that relief request.
+
+If a reliefpkg record does not yet exist for this request, initialise a draft package.
+
+Enforce single fulfiller per request:
+
+A relief package is prepared by either a Logistics Officer OR a Logistics Manager, but not both.
+
+If another user has taken ownership, show a clear message and prevent editing.
+
+Acquire an editing lock (soft lock + timestamp) and show a banner similar to the screenshot:
+
+“You are currently editing this relief package… lock will expire after 15 minutes of inactivity.”
+
+Pull all reliefrqst_item items and join:
+
+item (name, SKU, flags, issuance_order),
+
+inventory (per warehouse usable stock),
+
+any existing reliefpkg_item allocations for this package.
+
+POST /relief-requests/<reliefrqst_id>/prepare/save
+
+Saves a draft of the current allocations (warehouse + batch) and statuses.
+
+Enforces optimistic locking using a version_nbr on reliefpkg (or similar):
+
+If the version in the form doesn’t match DB, reject with a clear error.
+
+POST /relief-requests/<reliefrqst_id>/prepare/submit-for-approval
+
+For packages prepared by a Logistics Officer:
+
+Validates all rules.
+
+Marks the package as “Awaiting LM Approval”.
+
+Sends notification (placeholder functions) to the Logistics Manager
+and ensures the package appears in their “Awaiting Approval” queue.
+
+POST /relief-requests/<reliefrqst_id>/prepare/send-for-dispatch
+
+For packages prepared by a Logistics Manager:
+
+Validates all rules.
+
+Moves package to state “Ready for Dispatch”.
+
+Sends notification to the Inventory Clerk and adds to their “Awaiting Dispatch” queue.
+
+Optional: POST /relief-requests/<reliefrqst_id>/prepare/release-lock
+
+Releases the editing lock and returns the user to a list page.
+
+Page layout & UX (match screenshot)
+
+Implement a Jinja template for the Prepare Relief Package page that closely matches the screenshot:
+
+Header
+
+Title: “Prepare Relief Package”.
+
+Relief request reference and beneficiary/location (e.g. 49448B2 • PORTMORE COMMUNITY CENTER).
+
+Lock banner with start time and timeout, plus a “Release Lock” button.
+
+Summary tiles
+
+Four tiles aligned horizontally:
+
+Total Items (count of requested items).
+
+Fully Allocated (items where allocated == requested).
+
+Partial (items where 0 < allocated < requested).
+
+Unallocated (items where allocated == 0).
+
+Numbers update based on current allocations.
+
+Search + filter bar
+
+Text input: “Search items by name or SKU…”.
+
+Dropdown filter: “All Items”, “Unallocated”, “Partially Allocated”, “Fully Allocated” etc.
+
+Button: “Jump to First Unallocated”:
+
+Scrolls/focuses the first item row with 0 allocated quantity.
+
+Items table/grid
+For each requested item row, display:
+
+Item column:
+
+Item name and description, SKU code.
+
+Icons/badges for:
+
+Batched (is_batched_flag = TRUE),
+
+Expiring (can_expire_flag = TRUE).
+
+Requested quantity.
+
+Warehouse Active Items:
+
+A summary line listing warehouses and available active quantities
+(e.g. “200 – KINGSTON CENTRAL DEPOT, 75 – MONTEGO BAY RELIEF CENTER”).
+
+Allocated:
+
+A read-only total allocated quantity for this item for this request
+(sum over all reliefpkg_item rows linked to this item).
+
+Remaining:
+
+Computed as requested - allocated.
+
+Status dropdown:
+
+Values come from reliefrqstitem_status table.
+
+Behaviour rules (see “Status logic” below).
+
+Allocate / View Batches button:
+
+Opens the side drawer for detailed allocation.
+
+Right-hand workflow panel
+
+A vertical stepper mirroring the screenshot:
+
+Submitted → Prepare → Approval → Execute.
+
+Highlight current step (“Prepare”).
+
+Show metadata (who submitted, what date, etc.).
+
+A Notes (Optional) text area for free-form comments.
+
+Footer buttons
+
+Left: Cancel (navigate back / release lock).
+
+Middle: Save Draft.
+
+Right:
+
+For Logistics Officer: Submit for LM Approval.
+
+For Logistics Manager: Send for Dispatch.
+
+Use CSS (or a lightweight framework) to get a clean, modern, responsive layout
+visually similar to the screenshot.
+
+Side drawer for batch selection (core functionality)
+
+For batched items (item.is_batched_flag = TRUE), implement a slide-in side drawer with the following features:
+
+Opening
+
+Clicking “Allocate” or a similar button in the item row opens a drawer from the right.
+
+The main page remains visible underneath.
+
+Drawer header
+
+Show:
+
+Item name & SKU.
+
+Requested quantity, already allocated quantity, and remaining quantity.
+
+Issuance rule (e.g. “Issuance order: FEFO (expiry)” or “FIFO (receipt)”).
+
+Batch list (grouped by warehouse)
+
+For each warehouse where the item has stock, list batches from itembatch:
+
+Warehouse name.
+
+batch_no, batch_date, expiry_date (if any).
+
+Available quantity for allocation: usable_qty - reserved_qty.
+
+Status (must be A for allocation).
+
+Ordering:
+
+If item.can_expire_flag = TRUE, batches must be ordered by earliest expiry_date first (FEFO), excluding expired batches.
+
+If can_expire_flag = FALSE, batches must be ordered by oldest batch_date first (FIFO).
+
+Expired batches (expiry_date < current date, where expiry is applicable) must be shown as “Expired” and disabled for allocation.
+
+Allocation inputs
+
+Each batch row has a numeric input for “Qty to allocate”.
+
+Validation:
+
+Cannot exceed that batch’s available quantity.
+
+Cannot be negative.
+
+The drawer should show running totals:
+
+Total allocated from all batches in this drawer.
+
+Remaining quantity to fill for the item.
+
+Auto-allocate
+
+Provide an “Auto-allocate” button in the drawer:
+
+Automatically fills batch allocation quantities using the FEFO/FIFO rule:
+
+Start from the earliest eligible batch.
+
+Allocate as much as possible from each batch up to the item’s outstanding requested quantity.
+
+Respect all availability limits.
+
+After auto-allocate, the user can manually adjust any batch quantity.
+
+Saving / cancelling
+
+Save allocations:
+
+Writes batch-level allocations into reliefpkg_item records
+(each row identifies the item, the warehouse / inventory, and batch_id).
+
+Updates:
+
+Total allocated and remaining quantities for that item on the main grid.
+
+Item status (Requested / Partly Filled / Filled).
+
+Prepares itembatch.reserved_qty and inventory.reserved_qty changes to be persisted.
+
+Cancel / close:
+
+Discards unsaved changes in the drawer and closes it (confirm if there are unsaved edits).
+
+Make drawer keyboard accessible and closeable via ESC.
+
+Non-batched items
+
+If is_batched_flag = FALSE, either:
+
+Do not use the drawer, and allow allocation directly at warehouse level on the main grid, OR
+
+Show a simplified drawer without batch rows (system uses a default batch behind the scenes).
+
+Business rules to enforce
+
+Implement these rules in the backend and reflect key ones in the UI:
+
+Quantity & expiry rules
+
+Total allocated for an item (sum of all reliefpkg_item.item_qty for that item/request) must never exceed the requested quantity.
+
+Allocation per batch must not exceed itembatch.usable_qty - itembatch.reserved_qty.
+
+For can_expire_flag = TRUE, do not allow allocation from expired batches (expiry_date < current date).
+
+Status logic
+
+If total allocated == 0:
+
+Status can be Requested, Denied, Unavailable, or Awaiting Availability (depending on status codes in reliefrqstitem_status).
+
+If 0 < allocated < requested:
+
+Status must automatically be Partly Filled (or equivalent code).
+
+User may optionally switch to Allowed Limit if that status exists.
+
+If allocated == requested:
+
+Status must be Filled and cannot be changed manually.
+
+Summary tiles (Total Items / Fully Allocated / Partial / Unallocated) must reflect these rules.
+
+Optimistic locking
+
+Maintain version_nbr on reliefpkg (and/or reliefpkg_item aggregate).
+
+Every save or submit must:
+
+Compare submitted version with database version.
+
+If mismatch, reject and show:
+
+“This relief package was updated by another user. Please refresh and try again.”
+
+Save vs submit
+
+Save Draft:
+
+Allows incomplete allocations and partially filled statuses.
+
+Submit for LM Approval (Officer only):
+
+Requires all items to have a valid status and no validation errors.
+
+Send for Dispatch (LM only):
+
+Same validation; moves package into next workflow state and triggers notifications.
+
+Notifications
+
+Implement placeholders or simple functions to:
+
+Send email + in-app notification to LM when Officer submits for approval.
+
+Send email + in-app notification to Inventory Clerk when LM sends for dispatch.
+
+Implementation details
+
+Use clean Flask views, Jinja templates, and vanilla JS (or lightweight JS) for:
+
+Dynamic updates of allocated/remaining quantities.
+
+Opening/closing the side drawer.
+
+Running the auto-allocate logic (on the client or server side).
+
+Keep the code modular:
+
+Separate data access (queries for inventory/itembatch) into service/helper functions.
+
+Separate FEFO/FIFO allocation logic into a reusable function that can be unit tested.
+
+Please generate all necessary Python, HTML/Jinja, and JS code snippets and show how they fit into the existing Flask app structure so I can integrate them into my DRIMS codebase.
