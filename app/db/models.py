@@ -456,7 +456,7 @@ class BatchLocation(db.Model):
     create_by_id = db.Column(db.String(20), nullable=False)
     create_dtime = db.Column(db.DateTime, nullable=False)
     
-    batch = db.relationship('ItemBatch', backref='locations')
+    batch = db.relationship('ItemBatch', foreign_keys=[batch_id], backref='locations')
     location = db.relationship('Location', backref='batch_locations')
 
 class Donor(db.Model):
@@ -748,12 +748,25 @@ class Transfer(db.Model):
     event = db.relationship('Event', backref='transfers')
 
 class TransferItem(db.Model):
-    """Transfer item details"""
+    """Transfer Item - Batch-level transfer tracking between warehouses
+    
+    Tracks items being transferred from specific batches in source inventory.
+    When received at destination, if batch doesn't exist, create it with zero
+    quantities, then increment by received amounts. This preserves batch
+    traceability across warehouse transfers.
+    """
     __tablename__ = 'transfer_item'
+    __table_args__ = (
+        db.ForeignKeyConstraint(['inventory_id', 'item_id'], ['inventory.inventory_id', 'inventory.item_id']),
+        db.ForeignKeyConstraint(['inventory_id', 'batch_id'], ['itembatch.inventory_id', 'itembatch.batch_id']),
+        {'extend_existing': True}
+    )
     
     transfer_id = db.Column(db.Integer, db.ForeignKey('transfer.transfer_id'), primary_key=True)
-    item_id = db.Column(db.Integer, db.ForeignKey('item.item_id'), primary_key=True)
-    item_qty = db.Column(db.Numeric(12,2), nullable=False)
+    item_id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, primary_key=True, nullable=False)
+    inventory_id = db.Column(db.Integer, nullable=False)
+    item_qty = db.Column(db.Numeric(15, 4), nullable=False)
     uom_code = db.Column(db.String(25), db.ForeignKey('unitofmeasure.uom_code'), nullable=False)
     reason_text = db.Column(db.String(255))
     create_by_id = db.Column(db.String(20), nullable=False)
@@ -763,8 +776,13 @@ class TransferItem(db.Model):
     version_nbr = db.Column(db.Integer, nullable=False, default=1)
     
     transfer = db.relationship('Transfer', backref='items')
-    item = db.relationship('Item')
-    unit_of_measure = db.relationship('UnitOfMeasure')
+    item = db.relationship('Item', backref='transfer_items')
+    batch = db.relationship('ItemBatch', foreign_keys=[inventory_id, batch_id])
+    uom = db.relationship('UnitOfMeasure', backref='transfer_items')
+    
+    __mapper_args__ = {
+        'version_id_col': version_nbr
+    }
 
 class TransferRequest(db.Model):
     """Transfer request workflow (DRIMS extension)"""
