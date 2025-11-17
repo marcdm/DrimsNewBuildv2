@@ -635,6 +635,12 @@
     min-height: 44px;
 }
 
+/* Add proper spacing when checkboxes are in Bootstrap columns */
+.col .form-check,
+[class*="col-"] .form-check {
+    padding-left: var(--drims-space-sm);
+}
+
 .form-check-input {
     width: 20px;
     height: 20px;
