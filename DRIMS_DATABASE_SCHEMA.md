@@ -662,10 +662,10 @@ The DRIMS database contains 40 operational tables plus 2 supporting tables (coun
 |--------|------|----------|---------|-------------|
 | donation_id | integer | NO | | Donation (FK) |
 | item_id | integer | NO | | Item (FK) |
-| item_qty | numeric(15,4) | NO | | Quantity |
-| uom_code | varchar(25) | NO | | Unit (FK) |
-| location_name | text | NO | | Location description |
-| status_code | char(1) | NO | | Status |
+| item_qty | decimal(12,2) | NO | | Quantity (must be >= 0.00) |
+| uom_code | varchar(25) | NO | | Unit of measure (FK) |
+| location_name | text | NO | | Physical location description |
+| status_code | char(1) | NO | | Status (P=Pending, V=Verified) |
 | comments_text | text | YES | | Comments |
 | create_by_id | varchar(20) | NO | | Created by |
 | create_dtime | timestamp | NO | | Creation time |
@@ -674,10 +674,17 @@ The DRIMS database contains 40 operational tables plus 2 supporting tables (coun
 | version_nbr | integer | NO | | Optimistic locking |
 
 **Constraints:**
-- PRIMARY KEY: (donation_id, item_id)
-- FOREIGN KEY: donation_id → donation(donation_id)
-- FOREIGN KEY: item_id → item(item_id)
-- FOREIGN KEY: uom_code → unitofmeasure(uom_code)
+- PRIMARY KEY: (donation_id, item_id) (pk_donation_item)
+- FOREIGN KEY: donation_id → donation(donation_id) (fk_donation_item_donation)
+- FOREIGN KEY: item_id → item(item_id) (fk_donation_item_item)
+- FOREIGN KEY: uom_code → unitofmeasure(uom_code) (fk_donation_item_unitofmeasure)
+- CHECK: item_qty >= 0.00 (c_donation_item_1)
+- CHECK: status_code IN ('P', 'V') (c_donation_item_2)
+
+**Migration Notes:**
+- Table dropped and recreated (2025-11-17) with standardized constraint names
+- Changed item_qty from numeric(15,4) to decimal(12,2) to match specification
+- Recreated with explicit FK from dnintake_item maintained
 
 ---
 
