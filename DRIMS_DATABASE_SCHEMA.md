@@ -627,13 +627,13 @@ The DRIMS database contains 40 operational tables plus 2 supporting tables (coun
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
-| donation_id | integer | NO | | Primary key |
+| donation_id | integer | NO | identity | Primary key (auto-generated) |
 | donor_id | integer | NO | | Donor (FK) |
 | donation_desc | text | NO | | Description |
 | event_id | integer | NO | | Event (FK) |
 | custodian_id | integer | NO | | Custodian (FK) |
 | received_date | date | NO | | Receipt date |
-| status_code | char(1) | NO | | Status |
+| status_code | char(1) | NO | | Status (E=Entered, V=Verified) |
 | comments_text | text | YES | | Comments |
 | create_by_id | varchar(20) | NO | | Created by |
 | create_dtime | timestamp | NO | | Creation time |
@@ -642,10 +642,16 @@ The DRIMS database contains 40 operational tables plus 2 supporting tables (coun
 | version_nbr | integer | NO | | Optimistic locking |
 
 **Constraints:**
-- PRIMARY KEY: donation_id
-- FOREIGN KEY: donor_id → donor(donor_id)
-- FOREIGN KEY: event_id → event(event_id)
-- FOREIGN KEY: custodian_id → custodian(custodian_id)
+- PRIMARY KEY: donation_id (pk_donation)
+- FOREIGN KEY: donor_id → donor(donor_id) (fk_donation_donor)
+- FOREIGN KEY: event_id → event(event_id) (fk_donation_event)
+- FOREIGN KEY: custodian_id → custodian(custodian_id) (fk_donation_custodian)
+- CHECK: received_date <= CURRENT_DATE (c_donation_1)
+- CHECK: status_code IN ('E', 'V') (c_donation_2)
+
+**Migration Notes:**
+- Constraint names standardized (2025-11-17) to match naming conventions
+- donation_id already configured as identity column
 
 ---
 

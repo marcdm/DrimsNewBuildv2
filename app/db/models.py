@@ -514,7 +514,7 @@ class Donation(db.Model):
     """Donation"""
     __tablename__ = 'donation'
     
-    donation_id = db.Column(db.Integer, primary_key=True)
+    donation_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     donor_id = db.Column(db.Integer, db.ForeignKey('donor.donor_id'), nullable=False)
     donation_desc = db.Column(db.Text, nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey('event.event_id'), nullable=False)
