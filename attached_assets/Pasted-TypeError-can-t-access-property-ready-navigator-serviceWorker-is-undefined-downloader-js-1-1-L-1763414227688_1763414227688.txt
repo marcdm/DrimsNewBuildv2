@@ -1,0 +1,55 @@
+TypeError: can't access property "ready", navigator.serviceWorker is undefined
+downloader.js:1:1
+Loading existing allocations for item 7, found 0 inputs batch-allocation.js:195:17
+Current allocations: 
+Object { 6: 10, 9: 10 }
+batch-allocation.js:209:17
+Fetching batches from: /packaging/api/item/7/batches?remaining_qty=20 batch-allocation.js:131:21
+Response status: 200 OK batch-allocation.js:133:21
+Response data: 
+Object { batches: (5) […], can_expire: true, can_fulfill: true, is_batched: true, issuance_order: "FEFO", item_id: 7, item_name: "FIRST AID KIT STANDARD", shortfall: 0, total_available: 275 }
+batch-allocation.js:135:21
+API returned 5 batches: 
+Array(5) [ "6 (FAK-2024-001)", "9 (FAK-2024-MB-001)", "7 (FAK-2024-002)", "8 (FAK-2024-003)", "10 (FAK-2024-MB-002)" ]
+batch-allocation.js:156:21
+Previously allocated batch IDs: 
+Array []
+batch-allocation.js:163:21
+Rendering 5 batches batch-allocation.js:255:17
+  - Creating element for batch 6 (FAK-2024-001) batch-allocation.js:264:21
+  - Creating element for batch 9 (FAK-2024-MB-001) batch-allocation.js:264:21
+  - Creating element for batch 7 (FAK-2024-002) batch-allocation.js:264:21
+  - Creating element for batch 8 (FAK-2024-003) batch-allocation.js:264:21
+  - Creating element for batch 10 (FAK-2024-MB-002) batch-allocation.js:264:21
+Applying allocations for item 7: 
+Object { 6: 10, 9: 10 }
+batch-allocation.js:465:17
+Removing 0 existing inputs batch-allocation.js:469:17
+Form element: 
+<form id="packagingForm" method="POST" action="/packaging/16/prepare">
+batch-allocation.js:474:17
+  - Created hidden input: batch_allocation_7_6 = 10 batch-allocation.js:483:25
+  - Created hidden input: batch_allocation_7_9 = 10 batch-allocation.js:483:25
+Verification: Found 2 hidden inputs after adding batch-allocation.js:489:17
+  - batch_allocation_7_6 = 10 batch-allocation.js:491:21
+  - batch_allocation_7_9 = 10 batch-allocation.js:491:21
+Loading existing allocations for item 7, found 2 inputs batch-allocation.js:195:17
+  - Loaded allocation: batch 6 = 10 batch-allocation.js:204:29
+  - Loaded allocation: batch 9 = 10 batch-allocation.js:204:29
+Current allocations: 
+Object { 6: 10, 9: 10 }
+batch-allocation.js:209:17
+Fetching batches from: /packaging/api/item/7/batches? batch-allocation.js:131:21
+Response status: 200 OK batch-allocation.js:133:21
+Response data: 
+Object { batches: {…}, can_expire: true, is_batched: true, issuance_order: "FEFO", item_id: 7, item_name: "FIRST AID KIT STANDARD" }
+batch-allocation.js:135:21
+API returned 0 batches: 
+Array []
+batch-allocation.js:156:21
+Previously allocated batch IDs: 
+Array [ "6", "9" ]
+batch-allocation.js:163:21
+  - Batch 6: NOT FOUND in list batch-allocation.js:166:25
+  - Batch 9: NOT FOUND in list batch-allocation.js:166:25
+Rendering 0 batches

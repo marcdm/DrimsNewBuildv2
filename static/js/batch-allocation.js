@@ -120,9 +120,8 @@ const BatchAllocation = (function() {
             
             // Build API URL with query parameters
             const params = new URLSearchParams();
-            if (remainingQty > 0) {
-                params.append('remaining_qty', remainingQty);
-            }
+            // Always include remaining_qty, even if 0 (for consistent API response format)
+            params.append('remaining_qty', remainingQty);
             if (currentItemData.requiredUom) {
                 params.append('required_uom', currentItemData.requiredUom);
             }
