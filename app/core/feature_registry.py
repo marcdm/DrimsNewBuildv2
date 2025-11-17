@@ -316,7 +316,7 @@ class FeatureRegistry:
         'custodian_management': {
             'name': 'Manage Custodians',
             'description': 'Manage custodian records (ODPEM, etc.)',
-            'roles': ['SYSTEM_ADMINISTRATOR'],
+            'roles': ['CUSTODIAN'],
             'route': 'custodians.list_custodians',
             'url': '/custodians',
             'icon': 'bi-shield-check',
