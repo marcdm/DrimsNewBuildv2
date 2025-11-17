@@ -21,7 +21,8 @@ def get_current_reservations(reliefrqst_id: int) -> Dict[Tuple[int, int], Decima
     """
     Get current inventory reservations for a relief request.
     
-    Returns: {(item_id, warehouse_id): reserved_qty}
+    Returns: {(item_id, inventory_id): reserved_qty}
+    Note: inventory_id IS the warehouse_id (composite PK pattern)
     """
     # Get the parent ReliefPkg first to get the reliefrqst_id mapping
     from app.db.models import ReliefPkg
@@ -35,7 +36,7 @@ def get_current_reservations(reliefrqst_id: int) -> Dict[Tuple[int, int], Decima
     reservations = {}
     for pkg_item in pkg_items:
         if pkg_item.item_qty and pkg_item.item_qty > 0:
-            # Get warehouse_id from the inventory relationship (inventory_id IS the warehouse_id)
+            # inventory_id IS the warehouse_id (composite PK: inventory_id, item_id)
             if pkg_item.from_inventory:
                 key = (pkg_item.item_id, pkg_item.from_inventory.inventory_id)
                 reservations[key] = pkg_item.item_qty
@@ -54,11 +55,13 @@ def reserve_inventory(reliefrqst_id: int, new_allocations: List[Dict], old_alloc
     Args:
         reliefrqst_id: Relief request ID
         new_allocations: List of {item_id, warehouse_id, allocated_qty}
-        old_allocations: Dict of {(item_id, warehouse_id): allocated_qty} from before update
+        old_allocations: Dict of {(item_id, inventory_id): allocated_qty} from before update
                         If None, queries database for current reservations
     
     Returns:
         (success, error_message)
+    
+    Note: inventory_id IS the warehouse_id (composite PK pattern)
     """
     try:
         # Use provided old allocations or query from database
@@ -71,6 +74,7 @@ def reserve_inventory(reliefrqst_id: int, new_allocations: List[Dict], old_alloc
         new_reservations = {}
         for alloc in new_allocations:
             if alloc['allocated_qty'] > 0:
+                # warehouse_id is stored as inventory_id in the composite PK
                 key = (alloc['item_id'], alloc['warehouse_id'])
                 new_reservations[key] = alloc['allocated_qty']
         
@@ -78,21 +82,21 @@ def reserve_inventory(reliefrqst_id: int, new_allocations: List[Dict], old_alloc
         all_keys = set(current_reservations.keys()) | set(new_reservations.keys())
         
         for key in all_keys:
-            item_id, warehouse_id = key
+            item_id, inventory_id = key  # inventory_id IS the warehouse_id
             current_qty = current_reservations.get(key, Decimal('0'))
             new_qty = new_reservations.get(key, Decimal('0'))
             difference = new_qty - current_qty
             
             if difference != 0:
-                # Update inventory reserved_qty
+                # Update inventory reserved_qty using composite PK
                 inventory = Inventory.query.filter_by(
                     item_id=item_id,
-                    warehouse_id=warehouse_id,
+                    inventory_id=inventory_id,  # Use inventory_id, not warehouse_id
                     status_code='A'
                 ).with_for_update().first()
                 
                 if not inventory:
-                    return False, f'No active inventory found for item {item_id} at warehouse {warehouse_id}'
+                    return False, f'No active inventory found for item {item_id} at warehouse {inventory_id}'
                 
                 # Calculate new reserved quantity
                 new_reserved = inventory.reserved_qty + difference
@@ -131,15 +135,18 @@ def release_all_reservations(reliefrqst_id: int) -> Tuple[bool, str]:
     
     Returns:
         (success, error_message)
+    
+    Note: inventory_id IS the warehouse_id (composite PK pattern)
     """
     try:
         current_reservations = get_current_reservations(reliefrqst_id)
         
-        for (item_id, warehouse_id), reserved_qty in current_reservations.items():
+        for (item_id, inventory_id), reserved_qty in current_reservations.items():
             if reserved_qty > 0:
+                # Use inventory_id (which IS the warehouse_id) in composite PK
                 inventory = Inventory.query.filter_by(
                     item_id=item_id,
-                    warehouse_id=warehouse_id,
+                    inventory_id=inventory_id,  # Use inventory_id, not warehouse_id
                     status_code='A'
                 ).with_for_update().first()
                 
@@ -168,20 +175,23 @@ def commit_inventory(reliefrqst_id: int) -> Tuple[bool, str]:
     
     Returns:
         (success, error_message)
+    
+    Note: inventory_id IS the warehouse_id (composite PK pattern)
     """
     try:
         current_reservations = get_current_reservations(reliefrqst_id)
         
-        for (item_id, warehouse_id), allocated_qty in current_reservations.items():
+        for (item_id, inventory_id), allocated_qty in current_reservations.items():
             if allocated_qty > 0:
+                # Use inventory_id (which IS the warehouse_id) in composite PK
                 inventory = Inventory.query.filter_by(
                     item_id=item_id,
-                    warehouse_id=warehouse_id,
+                    inventory_id=inventory_id,  # Use inventory_id, not warehouse_id
                     status_code='A'
                 ).with_for_update().first()
                 
                 if not inventory:
-                    return False, f'No active inventory found for item {item_id} at warehouse {warehouse_id}'
+                    return False, f'No active inventory found for item {item_id} at warehouse {inventory_id}'
                 
                 # Validate sufficient usable quantity
                 if inventory.usable_qty < allocated_qty:

@@ -777,10 +777,11 @@ def cancel_preparation(reliefrqst_id):
 @packaging_bp.route('/api/inventory/<int:item_id>/<int:warehouse_id>')
 @login_required
 def get_inventory(item_id, warehouse_id):
-    """API endpoint to get current inventory for an item at a warehouse"""
+    """API endpoint to get current inventory for an item at a warehouse.
+    Note: warehouse_id is stored as inventory_id in the composite PK."""
     inventory = Inventory.query.filter_by(
         item_id=item_id,
-        warehouse_id=warehouse_id,
+        inventory_id=warehouse_id,  # Use inventory_id (which IS the warehouse_id)
         status_code='A'
     ).first()
     
