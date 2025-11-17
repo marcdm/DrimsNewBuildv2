@@ -4,6 +4,7 @@
 
 {% block extra_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/relief-requests-ui.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 {% endblock %}
 
 {% block title %}Edit Items - Request #{{ request.tracking_no }}{% endblock %}
@@ -128,10 +129,18 @@
                                     Required By Date 
                                     <span class="text-muted">(Optional)</span>
                                 </label>
-                                <input type="text" class="form-control" id="required_by_date" name="required_by_date" 
-                                       placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" 
-                                       title="Enter date in YYYY-MM-DD format (e.g., 2025-11-17)">
-                                <small class="text-muted">Date when this item must be delivered (format: YYYY-MM-DD)</small>
+                                <div class="input-group">
+                                    <input type="text" 
+                                           class="form-control datepicker-required-by" 
+                                           id="required_by_date" 
+                                           name="required_by_date" 
+                                           placeholder="YYYY-MM-DD"
+                                           readonly>
+                                    <span class="input-group-text" id="required-by-calendar-icon" style="cursor: pointer;">
+                                        <i class="bi bi-calendar3"></i>
+                                    </span>
+                                </div>
+                                <small class="text-muted">Click to select date when this item must be delivered</small>
                             </div>
                         </div>
                         <div class="pt-3 border-top">
@@ -281,7 +290,26 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Flatpickr for required_by_date
+    const requiredByPicker = flatpickr("#required_by_date", {
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        allowInput: false,
+        clickOpens: true
+    });
+    
+    // Make calendar icon clickable
+    const calendarIcon = document.getElementById('required-by-calendar-icon');
+    if (calendarIcon) {
+        calendarIcon.addEventListener('click', function() {
+            requiredByPicker.open();
+        });
+    }
+});
+
 // Update UOM hint when item is selected
 document.getElementById('item_id').addEventListener('change', function() {
     const selectedOption = this.options[this.selectedIndex];
@@ -312,17 +340,6 @@ document.getElementById('urgency_ind').addEventListener('change', function() {
         hint.textContent = 'Optional for Medium/Low urgency items';
         hint.classList.remove('text-danger');
         hint.classList.add('text-muted');
-    }
-});
-
-// Date format validation for required_by_date
-document.getElementById('required_by_date').addEventListener('blur', function() {
-    const dateValue = this.value.trim();
-    if (dateValue && !dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        this.setCustomValidity('Please enter date in YYYY-MM-DD format (e.g., 2025-11-17)');
-        this.reportValidity();
-    } else {
-        this.setCustomValidity('');
     }
 });
 
