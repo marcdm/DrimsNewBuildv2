@@ -1,0 +1,243 @@
+You are working in the existing DRIMS codebase.
+Do NOT change any database schemas. Use the existing itemcatg table exactly as defined in the database.
+
+The Custodian role is already defined and will be used to control access to Item Category (catalog) management.
+
+Your task is to implement Item Category Management (CRUD + querying + master data usage) using the rules below.
+
+0. Authorization
+
+Only users with the Custodian role (or appropriate mapped permissions) must be able to:
+
+Create item categories
+
+View item category list/details
+
+Update item categories
+
+Deletion rules must respect referential integrity (see below).
+
+1. General CRUD for Item Categories
+
+Implement:
+
+Create Item Category
+
+View Item Category
+
+Update Item Category
+
+(Conditional) Delete Item Category
+
+The system must not allow a category to be saved unless all mandatory fields are valid:
+
+category_code
+
+category_desc
+
+create_by_id
+
+create_dtime
+
+update_by_id
+
+update_dtime
+
+version_nbr
+
+Deletion rules:
+
+A category must not be deleted if it is referenced by any items or transactions.
+
+If a delete is attempted while referenced, the system must:
+
+Block the operation.
+
+Return a clear, user-friendly error (e.g. “This category cannot be deleted because it is in use by one or more items.”).
+
+2. Category Code Rules
+
+category_code is mandatory and must not be blank or whitespace.
+
+category_code must always be stored in UPPERCASE:
+
+Either automatically convert user input to uppercase before saving, or
+
+Reject non-uppercase values with a clear validation error (consistent with DRIMS validation pattern).
+
+category_code must be unique across all item categories:
+
+If a duplicate is attempted, block save and show a clear error message.
+
+Enforce maximum length of 30 characters:
+
+Reject any value longer than 30 characters.
+
+3. Category Description, Comments, and Status Code
+3.1 Category Description
+
+category_desc is mandatory and must not be blank.
+
+Enforce maximum length of 60 characters:
+
+Reject values longer than 60 characters.
+
+Trim leading and trailing spaces before validation and storage.
+
+3.2 Comments
+
+comments_text is optional.
+
+Limit comments to 300 characters in the UI/business logic (even if DB type is text).
+
+Reject values longer than 300 characters.
+
+Users must be able to:
+
+Add comments on create.
+
+Update comments.
+
+Clear comments (set to null).
+
+3.3 Status Code (Active / Inactive)
+
+status_code must be either:
+
+A = Active
+
+I = Inactive
+
+The UI must present status options via dropdown (no free-text).
+
+The system must block saving if status_code is not one of the above values.
+
+4. Use as Master Data (Dropdowns)
+
+Wherever item categories are referenced (e.g. item maintenance screens, item creation, relevant transaction forms):
+
+Present a dropdown or searchable picklist of valid categories sourced from itemcatg.
+
+Only active and valid categories (status_code = 'A') must be selectable for new records.
+
+Historical data:
+
+Categories that become inactive must still be visible in historical records, reports, and previously saved transactions.
+
+The dropdown/picklist should show enough information to identify the correct category, such as:
+
+category_code
+
+and/or category_desc (e.g., “FOOD – Food and consumables”).
+
+5. Audit Fields
+5.1 Create Audit
+
+On category creation:
+
+create_by_id must be automatically set to the current user’s identifier.
+
+create_dtime must be automatically set to the current system timestamp.
+
+Users must not be able to manually change create_by_id or create_dtime after creation (both UI and backend must enforce this).
+
+5.2 Update Audit
+
+On every update:
+
+update_by_id must be automatically set to the current user’s identifier.
+
+update_dtime must be automatically set to the current system timestamp.
+
+These fields must always reflect the last successful update.
+
+6. Version Number & Concurrency (Optimistic Locking)
+
+version_nbr must be set to an initial value (e.g. 1) when the category is first created.
+
+Each successful update must increment version_nbr by 1.
+
+Implement optimistic locking:
+
+On form load, capture the current version_nbr.
+
+On update, compare the submitted version_nbr to the current DB value.
+
+If the DB value is higher (stale form), reject update and show message, e.g.:
+
+“This category has been modified by another user. Please reload and try again.”
+
+7. Querying & Display
+7.1 Search & Filter
+
+The system must allow users to search and filter item categories by:
+
+category_code (exact or partial match; case-insensitive)
+
+category_desc (partial match; case-insensitive)
+
+7.2 List Views
+
+Category list pages must display at least:
+
+category_code
+
+category_desc
+
+status_code (or an Active/Inactive label)
+
+Optionally, key audit fields (depending on DRIMS UI design).
+
+Sorting and pagination behaviours should be consistent with other master data list views.
+
+7.3 Detail Views
+
+The category detail view must display:
+
+category_code
+
+category_desc
+
+comments_text (if any)
+
+status_code with friendly label (Active / Inactive)
+
+Audit information:
+
+create_by_id
+
+create_dtime
+
+update_by_id
+
+update_dtime
+
+version_nbr
+
+8. UI & UX Consistency
+
+All Item Category screens (list, create, edit, detail) must follow the same UI patterns and layouts as:
+
+Other master data screens,
+
+Event Management,
+
+Warehouse Management,
+
+Relief Request / Package modules.
+
+This includes:
+
+Form layout
+
+Field spacing and labels
+
+Validation message style
+
+Button positioning (“Save”, “Cancel”)
+
+Use of DRIMS-standard toasts/alerts
+
+Responsive behaviour and WCAG compliance.
+
+Implement all of the above using the existing itemcatg table and DRIMS conventions, without altering the database schema.
