@@ -65,7 +65,9 @@
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="required_by_date" class="form-label">Required By Date <span id="required_date_indicator" class="text-muted">(Optional)</span></label>
-                    <input type="date" class="form-control" id="required_by_date" name="required_by_date" placeholder="YYYY-MM-DD">
+                    <input type="text" class="form-control" id="required_by_date" name="required_by_date" 
+                           placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" 
+                           title="Enter date in YYYY-MM-DD format (e.g., 2025-11-17)">
                     <small class="text-muted">Date when this item must be delivered (format: YYYY-MM-DD)</small>
                 </div>
             </div>
@@ -157,6 +159,17 @@
 
 {% block scripts %}
 <script>
+// Date format validation for required_by_date
+document.getElementById('required_by_date').addEventListener('blur', function() {
+    const dateValue = this.value.trim();
+    if (dateValue && !dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        this.setCustomValidity('Please enter date in YYYY-MM-DD format (e.g., 2025-11-17)');
+        this.reportValidity();
+    } else {
+        this.setCustomValidity('');
+    }
+});
+
 // Update UOM hint when item is selected
 document.getElementById('item_id').addEventListener('change', function() {
     const selectedOption = this.options[this.selectedIndex];
