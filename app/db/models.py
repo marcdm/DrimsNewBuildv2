@@ -435,6 +435,30 @@ class ItemBatch(db.Model):
         from datetime import date
         return self.expiry_date < date.today()
 
+class BatchLocation(db.Model):
+    """Batch Location - Tracks physical locations of batches within warehouses
+    
+    Junction table linking batches to specific bin/shelf locations for
+    precise warehouse management and stock locating.
+    """
+    __tablename__ = 'batchlocation'
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ['inventory_id', 'batch_id'],
+            ['itembatch.inventory_id', 'itembatch.batch_id']
+        ),
+        {'extend_existing': True}
+    )
+    
+    inventory_id = db.Column(db.Integer, db.ForeignKey('warehouse.warehouse_id'), primary_key=True, nullable=False)
+    location_id = db.Column(db.Integer, db.ForeignKey('location.location_id'), primary_key=True, nullable=False)
+    batch_id = db.Column(db.Integer, db.ForeignKey('itembatch.batch_id'), primary_key=True, nullable=False)
+    create_by_id = db.Column(db.String(20), nullable=False)
+    create_dtime = db.Column(db.DateTime, nullable=False)
+    
+    batch = db.relationship('ItemBatch', backref='locations')
+    location = db.relationship('Location', backref='batch_locations')
+
 class Donor(db.Model):
     """Donor"""
     __tablename__ = 'donor'
