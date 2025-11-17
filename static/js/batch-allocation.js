@@ -180,6 +180,8 @@ const BatchAllocation = (function() {
         // Look for hidden inputs with pattern: batch_allocation_{itemId}_{batchId}
         const inputs = document.querySelectorAll(`input[name^="batch_allocation_${currentItemId}_"]`);
         
+        console.log(`Loading existing allocations for item ${currentItemId}, found ${inputs.length} inputs`);
+        
         inputs.forEach(input => {
             const parts = input.name.split('_');
             if (parts.length >= 4) {
@@ -187,10 +189,12 @@ const BatchAllocation = (function() {
                 const qty = parseFloat(input.value) || 0;
                 if (qty > 0) {
                     currentAllocations[batchId] = qty;
+                    console.log(`  - Loaded allocation: batch ${batchId} = ${qty}`);
                 }
             }
         });
         
+        console.log('Current allocations:', currentAllocations);
         updateTotals();
     }
     
@@ -298,7 +302,13 @@ const BatchAllocation = (function() {
         // Allocation input
         const input = container.querySelector('[data-batch-allocation-input]');
         input.max = batch.available_qty;
-        input.value = currentAllocations[batch.batch_id] || '';
+        const existingQty = currentAllocations[batch.batch_id];
+        if (existingQty) {
+            console.log(`Setting batch ${batch.batch_id} input to ${existingQty}`);
+            input.value = existingQty;
+        } else {
+            input.value = '';
+        }
         
         // Disable if expired
         if (container.classList.contains('expired')) {
