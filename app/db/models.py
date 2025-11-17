@@ -844,19 +844,30 @@ class DonationIntake(db.Model):
     inventory = db.relationship('Inventory', backref='donation_intakes')
 
 class DonationIntakeItem(db.Model):
-    """Items in donation intake (AIDMGMT)"""
+    """Donation Intake Item - Batch-level intake tracking for donations
+    
+    Tracks each batch of items received in a donation with batch numbers,
+    dates, expiry, and quantities. Supports creation of new batches or
+    updating existing batches in the itembatch table.
+    """
     __tablename__ = 'dnintake_item'
+    __table_args__ = (
+        db.ForeignKeyConstraint(['donation_id', 'inventory_id'], ['dnintake.donation_id', 'dnintake.inventory_id']),
+        db.ForeignKeyConstraint(['donation_id', 'item_id'], ['donation_item.donation_id', 'donation_item.item_id']),
+        {'extend_existing': True}
+    )
     
     donation_id = db.Column(db.Integer, primary_key=True)
     inventory_id = db.Column(db.Integer, primary_key=True)
-    item_id = db.Column(db.Integer, db.ForeignKey('item.item_id'), primary_key=True)
-    usable_qty = db.Column(db.DECIMAL(12, 2), nullable=False)
-    location1_id = db.Column(db.Integer, db.ForeignKey('location.location_id'))
-    defective_qty = db.Column(db.DECIMAL(12, 2), nullable=False)
-    location2_id = db.Column(db.Integer, db.ForeignKey('location.location_id'))
-    expired_qty = db.Column(db.DECIMAL(12, 2), nullable=False)
-    location3_id = db.Column(db.Integer, db.ForeignKey('location.location_id'))
+    item_id = db.Column(db.Integer, primary_key=True)
+    batch_no = db.Column(db.String(20), primary_key=True, nullable=False)
+    batch_date = db.Column(db.Date, nullable=False)
+    expiry_date = db.Column(db.Date)
     uom_code = db.Column(db.String(25), db.ForeignKey('unitofmeasure.uom_code'), nullable=False)
+    avg_unit_value = db.Column(db.Numeric(10, 2), nullable=False)
+    usable_qty = db.Column(db.Numeric(15, 4), nullable=False)
+    defective_qty = db.Column(db.Numeric(15, 4), nullable=False)
+    expired_qty = db.Column(db.Numeric(15, 4), nullable=False)
     status_code = db.Column(db.CHAR(1), nullable=False)
     comments_text = db.Column(db.String(255))
     create_by_id = db.Column(db.String(20), nullable=False)
@@ -865,12 +876,13 @@ class DonationIntakeItem(db.Model):
     update_dtime = db.Column(db.DateTime, nullable=False)
     version_nbr = db.Column(db.Integer, nullable=False, default=1)
     
-    __table_args__ = (
-        db.ForeignKeyConstraint(['donation_id', 'inventory_id'], ['dnintake.donation_id', 'dnintake.inventory_id']),
-    )
-    
+    intake = db.relationship('DonationIntake', backref='items')
     item = db.relationship('Item', backref='donation_intake_items')
-    unit_of_measure = db.relationship('UnitOfMeasure')
+    uom = db.relationship('UnitOfMeasure', backref='donation_intake_items')
+    
+    __mapper_args__ = {
+        'version_id_col': version_nbr
+    }
 
 class TransferIntake(db.Model):
     """Transfer intake - receiving transfers at destination warehouse (AIDMGMT)"""
