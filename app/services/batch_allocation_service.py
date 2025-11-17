@@ -297,8 +297,8 @@ class BatchAllocationService:
         required_uom: str = None
     ) -> Tuple[List[ItemBatch], Decimal, Decimal]:
         """
-        Get the minimum prefix of batches needed to fulfill remaining quantity.
-        Only returns enough batches to satisfy the request (or all if insufficient).
+        Get all available batches for the drawer display.
+        Shows all warehouses that have available stock for the item.
         
         Args:
             item_id: Item ID
@@ -307,7 +307,7 @@ class BatchAllocationService:
             
         Returns:
             Tuple of:
-                - List of batches (limited to minimum needed)
+                - List of all available batches
                 - Total available from these batches
                 - Shortfall (0 if can fulfill, positive if not)
         """
@@ -319,7 +319,7 @@ class BatchAllocationService:
         batches = BatchAllocationService.get_available_batches(item_id, required_uom=required_uom)
         sorted_batches = BatchAllocationService.sort_batches_by_allocation_rule(batches, item)
         
-        # Calculate minimum prefix needed
+        # Calculate total available from all batches
         cumulative_available = Decimal('0')
         limited_batches = []
         
@@ -327,10 +327,6 @@ class BatchAllocationService:
             available_qty = batch.usable_qty - batch.reserved_qty
             limited_batches.append(batch)
             cumulative_available += available_qty
-            
-            # Stop once we have enough to fulfill the request
-            if cumulative_available >= remaining_qty:
-                break
         
         # Calculate shortfall
         shortfall = max(Decimal('0'), remaining_qty - cumulative_available)
