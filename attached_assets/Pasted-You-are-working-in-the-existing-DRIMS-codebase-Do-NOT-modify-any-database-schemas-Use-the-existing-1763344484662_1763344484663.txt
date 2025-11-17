@@ -1,0 +1,233 @@
+You are working in the existing DRIMS codebase.
+Do NOT modify any database schemas. Use the existing unitofmeasure table exactly as defined in the database.
+
+The Custodian role already exists and must control access to Unit of Measure (UOM) management.
+
+Your task is to implement UOM Management (CRUD, master data usage, audit, and concurrency) according to the rules below.
+
+0. Authorization
+
+Only users with the Custodian role (or permissions mapped to it) must be able to:
+
+Create UOM records
+
+View UOM list and details
+
+Update UOM records
+
+Deletion must obey the referential integrity rules in section 1.
+
+1. General CRUD for Units of Measure (UOM)
+
+Implement:
+
+Create UOM
+
+View UOM
+
+Update UOM
+
+(Conditional) Delete UOM
+
+A UOM record must not be saved unless all mandatory fields are valid:
+
+uom_code
+
+uom_desc
+
+create_by_id
+
+create_dtime
+
+update_by_id
+
+update_dtime
+
+version_nbr
+
+Deletion rules:
+
+Deletion of a UOM must not be allowed if it is referenced by existing items or transactions.
+
+If such a deletion is attempted, the system must:
+
+Block the operation.
+
+Return a clear error message (e.g., “This unit of measure cannot be deleted because it is in use by existing records.”).
+
+2. UOM Code Rules
+
+uom_code is mandatory and must not be blank or whitespace.
+
+uom_code must always be stored in UPPERCASE:
+
+Either automatically convert user input to uppercase before save, or
+
+Reject non-uppercase input with a clear validation error consistent with DRIMS validation style.
+
+uom_code must be unique and acts as the primary key.
+
+If a user attempts to save a duplicate uom_code, the system must reject the save and display an appropriate error.
+
+Enforce maximum length of 25 characters:
+
+Reject any value longer than 25 characters.
+
+Leading and trailing spaces must be trimmed before validation and storage.
+
+3. Description & Comments
+3.1 UOM Description
+
+uom_desc is mandatory and must not be blank.
+
+Enforce maximum length of 60 characters:
+
+Reject values longer than 60 characters.
+
+Trim leading and trailing spaces before validation and storage.
+
+3.2 Comments
+
+comments_text is optional.
+
+Users must be able to:
+
+Add comments on create.
+
+Update existing comments.
+
+Clear comments (set to null).
+
+Limit comments_text to 300 characters in the application logic:
+
+Reject values longer than 300 characters.
+
+4. Use as Master Data (Dropdowns / Picklists)
+
+Wherever a UOM is required (e.g., Item, Inventory, Transaction screens), the system must present a dropdown list or searchable picklist sourced from the unitofmeasure table.
+
+The dropdown must include UOM values such as (but not limited to and as configured in the table):
+
+USD, JMD, PERSONS, KILOGRAMS, GALLONS, SACKS, BOTTLES, BOXES, METERS, UNITS, 10-FOOT SHEETS, 5-GALLON BOTTLES, 30X50 FEET, etc.
+
+Only valid and active UOMs (e.g., status_code = 'A') must be available for selection in new records.
+
+If a UOM becomes inactive (status_code = 'I'):
+
+It must no longer appear in dropdowns for new records.
+
+It must remain visible and usable in:
+
+Historical data
+
+Reports
+
+Any existing records that reference it.
+
+5. Audit Fields
+5.1 Create Audit
+
+On UOM creation:
+
+create_by_id must be automatically populated with the current user’s identifier.
+
+create_dtime must be automatically populated with the current system timestamp.
+
+Users must not be able to manually edit create_by_id or create_dtime after creation (UI and backend).
+
+5.2 Update Audit
+
+On every update:
+
+update_by_id must be automatically set to the current user’s identifier.
+
+update_dtime must be automatically set to the current system timestamp.
+
+These fields must always reflect the last successful update to the UOM record.
+
+6. Version Number & Concurrency (Optimistic Locking)
+
+version_nbr must be set to an initial value (e.g. 1) when a UOM is first created.
+
+Each successful update must increment version_nbr by 1.
+
+Implement optimistic locking using version_nbr:
+
+On loading the UOM for editing, capture the current version_nbr.
+
+On save, compare the submitted version_nbr with the current value in the database.
+
+If the submitted value is stale (less than the DB value), reject the update and inform the user, e.g.:
+
+“This unit of measure has been modified by another user. Please reload the record and try again.”
+
+7. Querying & Display
+7.1 Search & Filter
+
+The system must allow users to search and filter UOMs by:
+
+uom_code (exact or partial match, case-insensitive)
+
+uom_desc (partial match, case-insensitive)
+
+7.2 List Views
+
+UOM list views must display at least:
+
+uom_code
+
+uom_desc
+
+status_code (or equivalent Active/Inactive label)
+
+Optionally key audit fields, consistent with DRIMS UI standards.
+
+Sorting, paging, and filtering behavior should align with other master data list screens.
+
+7.3 Detail Views
+
+The detail view for a UOM must display all fields, including:
+
+uom_code
+
+uom_desc
+
+comments_text
+
+status_code
+
+Audit fields:
+
+create_by_id
+
+create_dtime
+
+update_by_id
+
+update_dtime
+
+version_nbr
+
+8. UI & UX Consistency
+
+All UOM management screens (list, create, edit, detail) must follow the same UI patterns and layout used in:
+
+Item category management
+
+Warehouse management
+
+Event management
+
+Other DRIMS master data screens
+
+This includes:
+
+Form structure and spacing
+
+Validation message style
+
+Button placement (“Save”, “Cancel”)
+
+Use of DRIMS-standard toasts/alerts
+
+Responsive design and WCAG alignment.

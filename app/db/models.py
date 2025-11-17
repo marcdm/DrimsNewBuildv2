@@ -261,17 +261,27 @@ class Parish(db.Model):
     parish_name = db.Column(db.String(40), nullable=False)
 
 class UnitOfMeasure(db.Model):
-    """Unit of Measure"""
+    """Unit of Measure (Master Data - CUSTODIAN role only)
+    
+    Defines units of measure for relief items and inventory tracking.
+    Updated schema includes status_code and optimistic locking support.
+    """
     __tablename__ = 'unitofmeasure'
+    __table_args__ = {'extend_existing': True}
     
     uom_code = db.Column(db.String(25), primary_key=True)
     uom_desc = db.Column(db.String(60), nullable=False)
     comments_text = db.Column(db.Text)
+    status_code = db.Column(db.CHAR(1), nullable=False, default='A')
     create_by_id = db.Column(db.String(20), nullable=False)
     create_dtime = db.Column(db.DateTime, nullable=False)
     update_by_id = db.Column(db.String(20), nullable=False)
     update_dtime = db.Column(db.DateTime, nullable=False)
     version_nbr = db.Column(db.Integer, nullable=False, default=1)
+    
+    __mapper_args__ = {
+        'version_id_col': version_nbr
+    }
 
 class ItemCategory(db.Model):
     """Item Category (Master Data - CUSTODIAN role only)

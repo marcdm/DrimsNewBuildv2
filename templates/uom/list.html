@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Units of Measure - DRIMS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modern-ui.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-2">
+                <i class="bi bi-rulers me-2"></i>Units of Measure
+            </h1>
+            <p class="text-muted mb-0">Manage units of measure for relief items and inventory</p>
+        </div>
+        <a href="{{ url_for('uom.create_uom') }}" class="btn btn-relief-primary">
+            <i class="bi bi-plus-circle me-2"></i>Add UOM
+        </a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="metric-label">Total Units</p>
+                            <h3 class="metric-value">{{ total_count }}</h3>
+                        </div>
+                        <div class="metric-icon bg-relief-primary">
+                            <i class="bi bi-rulers"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="metric-label">Active</p>
+                            <h3 class="metric-value text-success">{{ active_count }}</h3>
+                        </div>
+                        <div class="metric-icon bg-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="metric-label">Inactive</p>
+                            <h3 class="metric-value text-muted">{{ inactive_count }}</h3>
+                        </div>
+                        <div class="metric-icon bg-secondary">
+                            <i class="bi bi-dash-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="card modern-card">
+        <div class="card-header border-0 bg-white">
+            <ul class="nav nav-tabs filter-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link {% if status_filter == 'all' %}active{% endif %}" 
+                       href="{{ url_for('uom.list_uom', status='all') }}">
+                        All Units ({{ total_count }})
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link {% if status_filter == 'active' %}active{% endif %}" 
+                       href="{{ url_for('uom.list_uom', status='active') }}">
+                        Active ({{ active_count }})
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link {% if status_filter == 'inactive' %}active{% endif %}" 
+                       href="{{ url_for('uom.list_uom', status='inactive') }}">
+                        Inactive ({{ inactive_count }})
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body p-0">
+            {% if uoms %}
+            <div class="table-responsive">
+                <table class="table modern-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Last Updated</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for uom in uoms %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('uom.view_uom', uom_code=uom.uom_code) }}" 
+                                   class="fw-medium text-decoration-none">
+                                    <span class="code-pill">{{ uom.uom_code }}</span>
+                                </a>
+                            </td>
+                            <td>{{ uom.uom_desc }}</td>
+                            <td>
+                                {% if uom.status_code == 'A' %}
+                                <span class="badge status-active">
+                                    <i class="bi bi-check-circle me-1"></i>Active
+                                </span>
+                                {% else %}
+                                <span class="badge status-inactive">
+                                    <i class="bi bi-dash-circle me-1"></i>Inactive
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ uom.update_dtime.strftime('%Y-%m-%d %H:%M') if uom.update_dtime else 'N/A' }}
+                                    {% if uom.update_by_id %}
+                                    <br>by {{ uom.update_by_id }}
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('uom.view_uom', uom_code=uom.uom_code) }}" 
+                                       class="btn btn-outline-primary btn-sm"
+                                       title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('uom.edit_uom', uom_code=uom.uom_code) }}" 
+                                       class="btn btn-outline-secondary btn-sm"
+                                       title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-rulers"></i>
+                </div>
+                <h5 class="empty-state-title">No Units of Measure Found</h5>
+                <p class="empty-state-text">
+                    {% if status_filter != 'all' %}
+                    No {{ status_filter }} units of measure found. Try a different filter.
+                    {% else %}
+                    Get started by adding your first unit of measure.
+                    {% endif %}
+                </p>
+                {% if status_filter == 'all' %}
+                <a href="{{ url_for('uom.create_uom') }}" class="btn btn-relief-primary mt-3">
+                    <i class="bi bi-plus-circle me-2"></i>Add First UOM
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

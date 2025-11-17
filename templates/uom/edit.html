@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Unit of Measure - DRIMS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modern-ui.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('uom.list_uom') }}">Units of Measure</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('uom.view_uom', uom_code=uom.uom_code) }}">{{ uom.uom_code }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Edit</li>
+            </ol>
+        </nav>
+        <h1 class="h3">
+            <i class="bi bi-pencil me-2"></i>Edit Unit of Measure
+        </h1>
+    </div>
+
+    <!-- Form Card -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card modern-card">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('uom.edit_uom', uom_code=uom.uom_code) }}" novalidate>
+                        <!-- Hidden version field for optimistic locking -->
+                        <input type="hidden" name="version_nbr" value="{{ uom.version_nbr }}">
+
+                        <!-- UOM Code -->
+                        <div class="mb-3">
+                            <label for="uom_code" class="form-label required">UOM Code</label>
+                            <input type="text" 
+                                   class="form-control {% if errors.uom_code %}is-invalid{% endif %}" 
+                                   id="uom_code" 
+                                   name="uom_code" 
+                                   value="{{ form_data.uom_code or uom.uom_code }}"
+                                   maxlength="25"
+                                   required
+                                   placeholder="e.g., KG, LITER, BOX">
+                            <div class="form-text">
+                                Maximum 25 characters. Will be automatically converted to UPPERCASE.
+                            </div>
+                            {% if errors.uom_code %}
+                            <div class="invalid-feedback d-block">{{ errors.uom_code }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="uom_desc" class="form-label required">Description</label>
+                            <input type="text" 
+                                   class="form-control {% if errors.uom_desc %}is-invalid{% endif %}" 
+                                   id="uom_desc" 
+                                   name="uom_desc" 
+                                   value="{{ form_data.uom_desc or uom.uom_desc }}"
+                                   maxlength="60"
+                                   required
+                                   placeholder="e.g., Kilograms, Liters, Boxes">
+                            <div class="form-text">Maximum 60 characters.</div>
+                            {% if errors.uom_desc %}
+                            <div class="invalid-feedback d-block">{{ errors.uom_desc }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Status -->
+                        <div class="mb-3">
+                            <label for="status_code" class="form-label required">Status</label>
+                            <select class="form-select {% if errors.status_code %}is-invalid{% endif %}" 
+                                    id="status_code" 
+                                    name="status_code"
+                                    required>
+                                <option value="">-- Select Status --</option>
+                                <option value="A" {% if (form_data.status_code or uom.status_code) == 'A' %}selected{% endif %}>Active</option>
+                                <option value="I" {% if (form_data.status_code or uom.status_code) == 'I' %}selected{% endif %}>Inactive</option>
+                            </select>
+                            {% if errors.status_code %}
+                            <div class="invalid-feedback d-block">{{ errors.status_code }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Comments -->
+                        <div class="mb-4">
+                            <label for="comments_text" class="form-label">Comments</label>
+                            <textarea class="form-control {% if errors.comments_text %}is-invalid{% endif %}" 
+                                      id="comments_text" 
+                                      name="comments_text" 
+                                      rows="3"
+                                      maxlength="300"
+                                      placeholder="Optional notes or comments">{{ form_data.comments_text if form_data.comments_text is defined else (uom.comments_text or '') }}</textarea>
+                            <div class="form-text">Maximum 300 characters (optional).</div>
+                            {% if errors.comments_text %}
+                            <div class="invalid-feedback d-block">{{ errors.comments_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-relief-primary">
+                                <i class="bi bi-check-circle me-2"></i>Save Changes
+                            </button>
+                            <a href="{{ url_for('uom.view_uom', uom_code=uom.uom_code) }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Audit Information -->
+            <div class="card modern-card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>Audit Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 small">
+                        <div class="col-md-6">
+                            <strong>Created:</strong><br>
+                            {{ uom.create_dtime.strftime('%Y-%m-%d %H:%M:%S') if uom.create_dtime else 'N/A' }}<br>
+                            <span class="text-muted">by {{ uom.create_by_id or 'Unknown' }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Last Updated:</strong><br>
+                            {{ uom.update_dtime.strftime('%Y-%m-%d %H:%M:%S') if uom.update_dtime else 'N/A' }}<br>
+                            <span class="text-muted">by {{ uom.update_by_id or 'Unknown' }}</span>
+                        </div>
+                        <div class="col-12">
+                            <strong>Version:</strong> {{ uom.version_nbr }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Panel -->
+        <div class="col-lg-4">
+            <div class="card modern-card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Guidelines
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">UOM Code</h6>
+                    <ul class="small mb-3">
+                        <li>Unique identifier (max 25 chars)</li>
+                        <li>Automatically converted to UPPERCASE</li>
+                        <li>Use standard abbreviations</li>
+                    </ul>
+
+                    <h6 class="fw-bold">Description</h6>
+                    <ul class="small mb-3">
+                        <li>Clear, descriptive name (max 60 chars)</li>
+                        <li>Full name of the unit</li>
+                    </ul>
+
+                    <h6 class="fw-bold">Status</h6>
+                    <ul class="small mb-0">
+                        <li><strong>Active:</strong> Available for use in dropdowns</li>
+                        <li><strong>Inactive:</strong> Hidden but preserved for history</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
