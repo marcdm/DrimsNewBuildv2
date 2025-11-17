@@ -353,12 +353,15 @@ class Item(db.Model):
     }
 
 class Inventory(db.Model):
-    """Inventory (from aidmgmt-3.sql)"""
+    """Inventory - Warehouse-level stock tracking with composite PK
+    
+    inventory_id IS the warehouse_id - named for table alignment.
+    Composite primary key (inventory_id, item_id) ensures one record per item per warehouse.
+    """
     __tablename__ = 'inventory'
     
-    inventory_id = db.Column(db.Integer, primary_key=True)
-    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouse.warehouse_id'), nullable=False)
-    item_id = db.Column(db.Integer, db.ForeignKey('item.item_id'), nullable=False)
+    inventory_id = db.Column(db.Integer, db.ForeignKey('warehouse.warehouse_id'), primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.item_id'), primary_key=True)
     usable_qty = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     reserved_qty = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     defective_qty = db.Column(db.Numeric(12, 2), nullable=False, default=0)
@@ -368,13 +371,14 @@ class Inventory(db.Model):
     last_verified_date = db.Column(db.Date)
     status_code = db.Column(db.CHAR(1), nullable=False)
     comments_text = db.Column(db.Text)
+    reorder_qty = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     create_by_id = db.Column(db.String(20), nullable=False)
     create_dtime = db.Column(db.DateTime, nullable=False)
     update_by_id = db.Column(db.String(20), nullable=False)
     update_dtime = db.Column(db.DateTime, nullable=False)
     version_nbr = db.Column(db.Integer, nullable=False, default=1)
     
-    warehouse = db.relationship('Warehouse', backref='inventories')
+    warehouse = db.relationship('Warehouse', foreign_keys=[inventory_id], backref='inventories')
     item = db.relationship('Item', backref='inventories')
     uom = db.relationship('UnitOfMeasure', backref='inventories')
     

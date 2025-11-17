@@ -1,0 +1,60 @@
+create table inventory
+(
+	--ID for the warehouse's inventory. This is the same as the warehouse ID
+	--but is named "inventory_id" to align with the table name "inventory".
+	inventory_id integer not null
+		constraint fk_inventory_warehouse references warehouse(warehouse_id),
+	--ID for item in inventory
+	item_id integer not null
+		constraint fk_inventory_item references item,
+
+	--Total quantity/amount of usable/good item in inventory
+	usable_qty decimal(12,2) not null
+		constraint c_inventory_1 check (usable_qty >= 0.00),
+	
+	--Total quantity/amount of item reserved/blocked for one/more distributions
+	reserved_qty decimal(12,2) not null
+		constraint c_inventory_2 check (reserved_qty <= usable_qty),
+	
+	--Total quantity/amount of defective item in inventory
+	defective_qty decimal(12,2) not null
+		constraint c_inventory_3 check (defective_qty >= 0.00),
+	
+	--Total quantity/amount of expired item in inventory
+	expired_qty decimal(12,2) not null
+		constraint c_inventory_4 check (defective_qty >= 0.00),
+
+	--Units in which quantity of item is measured
+	uom_code varchar(25) not null
+		constraint fk_inventory_unitofmeasure references unitofmeasure,
+
+	--Quantity of item at/below which a reorder of items is required
+	reorder_qty decimal(12,2) not null
+		constraint c_inventory_5 check (reorder_qty >= 0.00),
+
+	last_verified_by varchar(20),
+	Last_verified_date date
+		constraint c_inventory_6
+		check ((last_verified_by is null and Last_verified_date is null)
+			or (last_verified_by is not null and Last_verified_date is not null)),
+
+	status_code char(1) not null
+		--A=Available, U=Unavailable
+		constraint c_inventory_7 check (status_code in ('A','U')),
+
+	--Any comments on item in inventory
+	comments_text text,
+		
+	create_by_id varchar(20) not null,
+	create_dtime timestamp(0) without time zone not null,
+	update_by_id varchar(20) not null,
+	update_dtime timestamp(0) without time zone not null,
+	version_nbr integer not null,
+	constraint pk_inventory primary key(inventory_id,item_id)
+);
+
+--Index for checking if there is any of a usable item across inventory
+create unique index uk_inventory_1 on inventory(item_id,inventory_id) where usable_qty > 0.00;
+
+--Create duplicate index on inventory to optimize join with warehouse.
+create index dk_inventory_1 on inventory(item_id);
