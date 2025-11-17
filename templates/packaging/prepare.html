@@ -723,13 +723,13 @@
                 </div>
             </form>
             
-            <!-- Cancel Button (separate form) -->
-            <form method="POST" action="{{ url_for('packaging.cancel_preparation', reliefrqst_id=relief_request.reliefrqst_id) }}" style="margin-top: 1rem; position: relative; z-index: 1;" id="cancelPackageForm">
-                <button type="submit" class="btn btn-secondary" id="cancelPackageBtn">
+            <!-- Cancel Button -->
+            <div style="margin-top: 1rem;">
+                <button type="button" class="btn btn-secondary" onclick="handleCancelPackage()" style="cursor: pointer;">
                     <i class="bi bi-x-circle"></i>
                     Cancel Package Preparation
                 </button>
-            </form>
+            </div>
             </div>
         </div>
 
@@ -1134,18 +1134,16 @@ function releaseLock() {
     }
 }
 
-// Cancel button handler with confirmation
-document.addEventListener('DOMContentLoaded', function() {
-    const cancelForm = document.getElementById('cancelPackageForm');
-    if (cancelForm) {
-        cancelForm.addEventListener('submit', function(e) {
-            if (!confirm('Cancel package preparation? All unsaved changes and reservations will be released.')) {
-                e.preventDefault();
-                return false;
-            }
-        });
+function handleCancelPackage() {
+    if (confirm('Cancel package preparation?\n\nThis will:\n• Delete all draft allocations\n• Release all inventory reservations\n• Release the fulfillment lock\n\nThis action cannot be undone.')) {
+        // Create and submit a form to POST to the cancel route
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
+        document.body.appendChild(form);
+        form.submit();
     }
-});
+}
 </script>
 
 {# Batch Allocation Module #}
