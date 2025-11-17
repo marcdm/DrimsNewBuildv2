@@ -297,9 +297,9 @@ class BatchAllocationService:
         required_uom: str = None
     ) -> Tuple[List[ItemBatch], Decimal, Decimal]:
         """
-        Get limited batches for the drawer display.
-        Shows only ONE batch per warehouse (the top FEFO/FIFO batch).
-        Displays ALL warehouses that have available stock.
+        Get batches for the drawer display.
+        Shows ALL available batches sorted by FEFO/FIFO order.
+        This allows users to see and edit all their previous selections.
         
         Args:
             item_id: Item ID
@@ -308,7 +308,7 @@ class BatchAllocationService:
             
         Returns:
             Tuple of:
-                - List of batches (one per warehouse, all warehouses shown)
+                - List of all available batches (sorted by FEFO/FIFO)
                 - Total available from these batches
                 - Shortfall (0 if can fulfill, positive if not)
         """
@@ -320,27 +320,16 @@ class BatchAllocationService:
         batches = BatchAllocationService.get_available_batches(item_id, required_uom=required_uom)
         sorted_batches = BatchAllocationService.sort_batches_by_allocation_rule(batches, item)
         
-        # Group by warehouse, keeping only the first (top priority) batch per warehouse
-        # This shows ALL warehouses, not just minimum needed
-        seen_warehouses = set()
-        warehouse_batches = []
-        
-        for batch in sorted_batches:
-            warehouse_id = batch.inventory.inventory_id
-            if warehouse_id not in seen_warehouses:
-                warehouse_batches.append(batch)
-                seen_warehouses.add(warehouse_id)
-        
-        # Calculate total available from all warehouse batches
+        # Calculate total available from all batches
         cumulative_available = Decimal('0')
-        for batch in warehouse_batches:
+        for batch in sorted_batches:
             available_qty = batch.usable_qty - batch.reserved_qty
             cumulative_available += available_qty
         
         # Calculate shortfall
         shortfall = max(Decimal('0'), remaining_qty - cumulative_available)
         
-        return warehouse_batches, cumulative_available, shortfall
+        return sorted_batches, cumulative_available, shortfall
     
     @staticmethod
     def assign_priority_groups(batches: List[ItemBatch], item: Item) -> List[Tuple[ItemBatch, int]]:
