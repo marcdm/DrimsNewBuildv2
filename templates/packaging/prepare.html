@@ -705,6 +705,8 @@
                 <!-- Action Buttons -->
                 <div class="action-buttons">
                     <button type="submit" 
+                            name="action"
+                            value="cancel"
                             class="btn btn-secondary btn-sm" 
                             formaction="{{ url_for('packaging.cancel_preparation', reliefrqst_id=relief_request.reliefrqst_id) }}" 
                             formmethod="post"
