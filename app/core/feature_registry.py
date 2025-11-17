@@ -247,6 +247,17 @@ class FeatureRegistry:
             'navigation_group': 'master_data',
             'priority': 4
         },
+        'uom_management': {
+            'name': 'Units of Measure',
+            'description': 'Manage units of measure for items and inventory',
+            'roles': ['CUSTODIAN'],  # Restricted to CUSTODIAN only - master data table
+            'route': 'uom.list_uom',
+            'url': '/uom',
+            'icon': 'bi-rulers',
+            'category': 'master_data',
+            'navigation_group': 'master_data',
+            'priority': 3
+        },
         'item_catalog': {
             'name': 'Manage Items',
             'description': 'Manage relief item catalog',
