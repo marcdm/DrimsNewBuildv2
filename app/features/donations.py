@@ -122,12 +122,13 @@ def create_donation():
                     item_comments = request.form.get(f'item_comments_{item_num}', '').strip()
                     
                     if item_id:
+                        quantity_value = None
                         if not quantity_str:
                             errors.append(f'Quantity is required for item #{item_num}')
                         else:
                             try:
-                                quantity = Decimal(quantity_str)
-                                if quantity <= 0:
+                                quantity_value = Decimal(quantity_str)
+                                if quantity_value <= 0:
                                     errors.append(f'Quantity must be greater than 0 for item #{item_num}')
                             except:
                                 errors.append(f'Invalid quantity for item #{item_num}')
@@ -137,13 +138,16 @@ def create_donation():
                         if not status_code:
                             errors.append(f'Status is required for item #{item_num}')
                         
-                        item_data.append({
-                            'item_id': int(item_id),
-                            'quantity': Decimal(quantity_str) if quantity_str else None,
-                            'uom_id': int(uom_id) if uom_id else None,
-                            'status_code': status_code,
-                            'item_comments': item_comments
-                        })
+                        try:
+                            item_data.append({
+                                'item_id': int(item_id),
+                                'quantity': quantity_value,
+                                'uom_id': int(uom_id) if uom_id else None,
+                                'status_code': status_code,
+                                'item_comments': item_comments
+                            })
+                        except ValueError as ve:
+                            errors.append(f'Invalid data for item #{item_num}: {str(ve)}')
             
             if not item_data:
                 errors.append('At least one donation item is required')
