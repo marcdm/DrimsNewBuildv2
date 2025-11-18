@@ -309,37 +309,43 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Update UOM hint when item is selected
-document.getElementById('item_id').addEventListener('change', function() {
-    const selectedOption = this.options[this.selectedIndex];
-    const uomCode = selectedOption.getAttribute('data-uom');
-    const uomHint = document.getElementById('selected_uom');
-    if (uomCode) {
-        uomHint.textContent = uomCode;
-    } else {
-        uomHint.textContent = '—';
-    }
-});
+const itemSelect = document.getElementById('item_id');
+if (itemSelect) {
+    itemSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const uomCode = selectedOption.getAttribute('data-uom');
+        const uomHint = document.getElementById('selected_uom');
+        if (uomCode) {
+            uomHint.textContent = uomCode;
+        } else {
+            uomHint.textContent = '—';
+        }
+    });
+}
 
 // Toggle justification requirement based on urgency selection
-document.getElementById('urgency_ind').addEventListener('change', function() {
-    const justificationField = document.getElementById('rqst_reason_desc');
-    const requiredIndicator = document.getElementById('justification_required_indicator');
-    const hint = document.getElementById('justification_hint');
-    
-    if (this.value === 'H') {
-        justificationField.setAttribute('required', 'required');
-        requiredIndicator.style.display = 'inline';
-        hint.textContent = 'Required for High urgency items';
-        hint.classList.remove('text-muted');
-        hint.classList.add('text-danger');
-    } else {
-        justificationField.removeAttribute('required');
-        requiredIndicator.style.display = 'none';
-        hint.textContent = 'Optional for Medium/Low urgency items';
-        hint.classList.remove('text-danger');
-        hint.classList.add('text-muted');
-    }
-});
+const urgencySelect = document.getElementById('urgency_ind');
+if (urgencySelect) {
+    urgencySelect.addEventListener('change', function() {
+        const justificationField = document.getElementById('rqst_reason_desc');
+        const requiredIndicator = document.getElementById('justification_required_indicator');
+        const hint = document.getElementById('justification_hint');
+        
+        if (this.value === 'H') {
+            justificationField.setAttribute('required', 'required');
+            requiredIndicator.style.display = 'inline';
+            hint.textContent = 'Required for High urgency items';
+            hint.classList.remove('text-muted');
+            hint.classList.add('text-danger');
+        } else {
+            justificationField.removeAttribute('required');
+            requiredIndicator.style.display = 'none';
+            hint.textContent = 'Optional for Medium/Low urgency items';
+            hint.classList.remove('text-danger');
+            hint.classList.add('text-muted');
+        }
+    });
+}
 
 // Validate submit form
 const submitForm = document.getElementById('submitForm');
