@@ -13,8 +13,17 @@ The dynamically created form was missing the CSRF token input field, causing Fla
 
 ## Solution
 
-### Code Change
-Updated the `handleCancelPackage()` function in `templates/packaging/prepare.html` to include the CSRF token:
+### Code Changes
+
+**1. Added CSRF token field to main form:**
+```html
+<form method="POST" id="packagingForm" action="{{ url_for('packaging.prepare_package', reliefrqst_id=relief_request.reliefrqst_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" id="csrf_token">
+    <!-- rest of form -->
+</form>
+```
+
+**2. Updated JavaScript to read CSRF token from form:**
 
 **Before (Broken):**
 ```javascript
@@ -37,12 +46,15 @@ function handleCancelPackage() {
         form.method = 'POST';
         form.action = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
         
-        // Add CSRF token
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrf_token';
-        csrfInput.value = '{{ csrf_token() }}';
-        form.appendChild(csrfInput);
+        // Add CSRF token from existing form
+        const csrfToken = document.getElementById('csrf_token');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = csrfToken.value;
+            form.appendChild(csrfInput);
+        }
         
         document.body.appendChild(form);
         form.submit();

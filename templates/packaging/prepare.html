@@ -618,6 +618,7 @@
             <!-- Items Table -->
             <div class="table-responsive-mobile">
                 <form method="POST" id="packagingForm" action="{{ url_for('packaging.prepare_package', reliefrqst_id=relief_request.reliefrqst_id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" id="csrf_token">
                     <table class="items-table">
                     <thead>
                         <tr>
@@ -1141,12 +1142,15 @@ function handleCancelPackage() {
         form.method = 'POST';
         form.action = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
         
-        // Add CSRF token
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrf_token';
-        csrfInput.value = '{{ csrf_token() }}';
-        form.appendChild(csrfInput);
+        // Add CSRF token from existing form
+        const csrfToken = document.getElementById('csrf_token');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = csrfToken.value;
+            form.appendChild(csrfInput);
+        }
         
         document.body.appendChild(form);
         form.submit();
