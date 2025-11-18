@@ -534,6 +534,14 @@ const BatchAllocation = (function() {
             const autoStatus = statusDropdown.getAttribute('data-auto-status');
             const allowedCodes = statusDropdown.getAttribute('data-allowed-codes');
             
+            console.log(`[Status Update] Item ${currentItemId}:`, {
+                totalAllocated,
+                requestedQty,
+                currentStatus: statusDropdown.value,
+                autoStatus,
+                allowedCodes
+            });
+            
             if (autoStatus && allowedCodes) {
                 const allowedArray = allowedCodes.split(',');
                 let newStatus = autoStatus;
@@ -542,19 +550,32 @@ const BatchAllocation = (function() {
                 if (totalAllocated === 0) {
                     // No allocation - set to default auto status (usually 'A' = Approved)
                     newStatus = autoStatus;
+                    console.log(`  → No allocation, using auto status: ${newStatus}`);
                 } else if (totalAllocated >= requestedQty) {
                     // Fully allocated - set to 'A' (Approved) if allowed
                     newStatus = allowedArray.includes('A') ? 'A' : autoStatus;
+                    console.log(`  → Fully allocated, new status: ${newStatus}`);
                 } else {
                     // Partially allocated - set to 'P' (Partially Approved) if allowed
                     newStatus = allowedArray.includes('P') ? 'P' : autoStatus;
+                    console.log(`  → Partially allocated (${totalAllocated}/${requestedQty}), new status: ${newStatus}`);
                 }
                 
+                console.log(`  → Allowed codes:`, allowedArray);
+                console.log(`  → Will update? ${allowedArray.includes(newStatus) && statusDropdown.value !== newStatus}`);
+                
                 // Only update if the new status is in the allowed codes
-                if (allowedArray.includes(newStatus) && statusDropdown.value !== newStatus) {
-                    statusDropdown.value = newStatus;
-                    // Trigger change event to update any dependent UI
-                    statusDropdown.dispatchEvent(new Event('change'));
+                if (allowedArray.includes(newStatus)) {
+                    if (statusDropdown.value !== newStatus) {
+                        console.log(`  ✓ Updating status from ${statusDropdown.value} to ${newStatus}`);
+                        statusDropdown.value = newStatus;
+                        // Trigger change event to update any dependent UI
+                        statusDropdown.dispatchEvent(new Event('change'));
+                    } else {
+                        console.log(`  • Status already set to ${newStatus}, no change needed`);
+                    }
+                } else {
+                    console.log(`  ✗ New status ${newStatus} not in allowed codes, keeping current status`);
                 }
             }
         }
