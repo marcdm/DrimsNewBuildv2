@@ -133,8 +133,9 @@
 
                         <!-- Donation Items Section -->
                         <div class="mb-4">
-                            <div class="drims-card">
-                                <h5 class="mb-3"><i class="bi bi-plus-circle"></i> Add Donation Item</h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="mb-3"><i class="bi bi-plus-circle"></i> Add Donation Item</h5>
                                 <div id="addItemForm">
                                     <div class="row">
                                         <div class="col-md-6 mb-3">
@@ -176,11 +177,13 @@
                                     </button>
                                 </div>
                             </div>
+                            </div>
 
-                            <div class="drims-card mt-3">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="mb-0"><i class="bi bi-list-ul"></i> Current Items (<span id="itemCount">0</span>)</h5>
-                                </div>
+                            <div class="card mt-3">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="mb-0"><i class="bi bi-list-ul"></i> Current Items (<span id="itemCount">0</span>)</h5>
+                                    </div>
 
                                 <div id="itemsTableContainer"></div>
                                 
@@ -189,8 +192,9 @@
                                     <p class="text-muted mt-2 mb-0">No items added yet. Use the form above to add items to this donation.</p>
                                 </div>
 
-                                <div id="itemsContainer" style="display: none;">
-                                    <!-- Hidden inputs for form submission -->
+                                    <div id="itemsContainer" style="display: none;">
+                                        <!-- Hidden inputs for form submission -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -306,13 +310,13 @@ function updateItemsTable() {
         // Build table HTML
         let tableHtml = `
             <div class="table-responsive">
-                <table class="table drims-table">
+                <table class="modern-table">
                     <thead>
                         <tr>
-                            <th>Item</th>
-                            <th class="text-end">Quantity</th>
-                            <th>Comments</th>
-                            <th class="text-end">Actions</th>
+                            <th scope="col">Item</th>
+                            <th scope="col" class="text-end">Quantity</th>
+                            <th scope="col">Comments</th>
+                            <th scope="col" class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>

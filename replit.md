@@ -37,7 +37,7 @@ All pages maintain a modern, consistent UI with a comprehensive design system in
 - **Workflows**: Standardized 5-step workflow patterns for Agency Relief Requests and Eligibility Approval.
 - **Dashboards**: 6 role-specific dashboards with consistent modern UI, filter tabs, and summary cards.
 - **Management Modules**: Comprehensive modules for Event, Warehouse, User, Notification, Item, Item Category, Custodian, Unit of Measure, Inventory, and Donation management, all featuring modern UI, CRUD operations, validation, and optimistic locking.
-- **Donation Processing**: Complete donation workflow including header and item management, status tracking (Entered, Verified, Processed), verification audit trails, modern UI with summary cards and filter tabs, restricted to LOGISTICS_MANAGER and LOGISTICS_OFFICER roles.
+- **Donation Processing**: Complete donation workflow including header and item management, status tracking (Entered, Verified, Processed), verification audit trails, modern UI with summary cards and filter tabs, restricted to LOGISTICS_MANAGER and LOGISTICS_OFFICER roles. Donation creation form uses consistent modern UI pattern matching warehouse management and agency relief request pages, with inline item addition following agency request items edit page interaction pattern.
 
 ### Database Architecture
 - **Schema**: Based on the authoritative ODPEM `aidmgmt-3.sql` schema (40 tables).
@@ -53,6 +53,7 @@ All pages maintain a modern, consistent UI with a comprehensive design system in
     - **Relief Request Status Table**: 10 status codes (0-9) organized into three workflow views with reason requirements for DENIED, CLOSED, and INELIGIBLE statuses.
     - **Relief Package Table**: Tracks relief packages with agency_id, tracking_no (7-char), eligible_event_id, and 6 status codes (A=Draft, P=Processing, C=Completed, V=Verified, D=Dispatched, R=Received).
     - **Atomic Transaction Workflow**: Implemented for donation creation, ensuring header and all items are saved in a single transaction or none at all.
+    - **Donation Item Status**: Default value 'V' (Verified) set at database and model level for `donation_item.status_code`, removed from form UI for streamlined user experience.
 
 ### Data Flow Patterns
 - **AIDMGMT Relief Workflow**: End-to-end process from request creation to distribution.
