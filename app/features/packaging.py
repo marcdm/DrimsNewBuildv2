@@ -322,7 +322,8 @@ def prepare_package(reliefrqst_id):
         for pkg in existing_packages:
             for pkg_item in pkg.items:
                 item_id = pkg_item.item_id
-                warehouse_id = Inventory.query.get(pkg_item.fr_inventory_id).warehouse_id
+                # fr_inventory_id IS the warehouse_id (inventory_id = warehouse_id in schema)
+                warehouse_id = pkg_item.fr_inventory_id
                 
                 if item_id not in existing_allocations:
                     existing_allocations[item_id] = {}
