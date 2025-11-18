@@ -531,78 +531,52 @@ const BatchAllocation = (function() {
         // Update Status dropdown based on allocation logic
         const statusDropdown = document.getElementById(`status_${currentItemId}`);
         if (statusDropdown) {
-            const currentStatus = statusDropdown.value;
+            const autoStatus = statusDropdown.getAttribute('data-auto-status');
+            const allowedCodes = statusDropdown.getAttribute('data-allowed-codes');
             
             console.log(`[Status Update] Item ${currentItemId}:`, {
                 totalAllocated,
                 requestedQty,
-                currentStatus
+                currentStatus: statusDropdown.value,
+                autoStatus,
+                allowedCodes
             });
             
-            // Determine new auto status and allowed codes based on allocation
-            let newAutoStatus;
-            let newAllowedCodes;
-            
-            if (totalAllocated === 0) {
-                newAutoStatus = 'R';  // Requested
-                newAllowedCodes = ['R', 'D', 'U', 'W'];
-                console.log(`  → No allocation, auto status: ${newAutoStatus}`);
-            } else if (totalAllocated >= requestedQty) {
-                newAutoStatus = 'F';  // Filled
-                newAllowedCodes = ['F'];
-                console.log(`  → Fully allocated, auto status: ${newAutoStatus}`);
-            } else {
-                newAutoStatus = 'P';  // Partly Filled
-                newAllowedCodes = ['P', 'L'];
-                console.log(`  → Partially allocated (${totalAllocated}/${requestedQty}), auto status: ${newAutoStatus}`);
-            }
-            
-            // Get current value before updating options
-            const currentValue = statusDropdown.value;
-            
-            // Preserve current selection if it's a manual status (not auto-status)
-            const finalAllowedCodes = [...newAllowedCodes];
-            const autoStatuses = ['R', 'P', 'F'];
-            if (currentValue && !newAllowedCodes.includes(currentValue) && !autoStatuses.includes(currentValue)) {
-                finalAllowedCodes.push(currentValue);
-                console.log(`  → Preserving manual status: ${currentValue}`);
-            }
-            
-            // CRITICAL: Update dropdown options FIRST
-            // Get status map from page (if available)
-            const statusMapElement = document.getElementById('statusMapData');
-            const statusMap = statusMapElement ? JSON.parse(statusMapElement.dataset.statusMap) : {};
-            
-            // Rebuild dropdown with new options
-            statusDropdown.innerHTML = '';
-            finalAllowedCodes.forEach(code => {
-                const option = document.createElement('option');
-                option.value = code;
-                option.textContent = statusMap[code]?.desc || code;
-                statusDropdown.appendChild(option);
-            });
-            
-            console.log(`  → Rebuilt dropdown with options:`, finalAllowedCodes);
-            
-            // Update data attributes
-            statusDropdown.setAttribute('data-auto-status', newAutoStatus);
-            statusDropdown.setAttribute('data-allowed-codes', newAllowedCodes.join(','));
-            
-            // THEN set the value (now the option exists)
-            // Auto-select if current status is an auto status
-            if (autoStatuses.includes(currentValue)) {
-                statusDropdown.value = newAutoStatus;
-                console.log(`  ✓ Auto-updated status from ${currentValue} to ${newAutoStatus}`);
-                // Trigger change event to update any dependent UI
-                statusDropdown.dispatchEvent(new Event('change'));
-            } else {
-                // Keep manual status if it's still in allowed codes
-                if (finalAllowedCodes.includes(currentValue)) {
-                    statusDropdown.value = currentValue;
-                    console.log(`  • Kept manual status: ${currentValue}`);
+            if (autoStatus && allowedCodes) {
+                const allowedArray = allowedCodes.split(',');
+                let newStatus = autoStatus;
+                
+                // Auto-status logic based on allocation
+                // Status codes: R=Requested, P=Partly Filled, F=Filled, D=Denied, U=Unavailable, W=Withdrawn, L=Limit Allowed
+                if (totalAllocated === 0) {
+                    // No allocation - set to 'R' (Requested) if allowed, else use auto status
+                    newStatus = allowedArray.includes('R') ? 'R' : autoStatus;
+                    console.log(`  → No allocation, using status: ${newStatus}`);
+                } else if (totalAllocated >= requestedQty) {
+                    // Fully allocated - set to 'F' (Filled) if allowed
+                    newStatus = allowedArray.includes('F') ? 'F' : autoStatus;
+                    console.log(`  → Fully allocated, new status: ${newStatus}`);
                 } else {
-                    statusDropdown.value = newAutoStatus;
-                    console.log(`  ✓ Manual status ${currentValue} no longer valid, set to ${newAutoStatus}`);
+                    // Partially allocated - set to 'P' (Partly Filled) if allowed
+                    newStatus = allowedArray.includes('P') ? 'P' : autoStatus;
+                    console.log(`  → Partially allocated (${totalAllocated}/${requestedQty}), new status: ${newStatus}`);
+                }
+                
+                console.log(`  → Allowed codes:`, allowedArray);
+                console.log(`  → Will update? ${allowedArray.includes(newStatus) && statusDropdown.value !== newStatus}`);
+                
+                // Only update if the new status is in the allowed codes
+                if (allowedArray.includes(newStatus)) {
+                    if (statusDropdown.value !== newStatus) {
+                        console.log(`  ✓ Updating status from ${statusDropdown.value} to ${newStatus}`);
+                        statusDropdown.value = newStatus;
+                        // Trigger change event to update any dependent UI
+                        statusDropdown.dispatchEvent(new Event('change'));
+                    } else {
+                        console.log(`  • Status already set to ${newStatus}, no change needed`);
+                    }
+                } else {
+                    console.log(`  ✗ New status ${newStatus} not in allowed codes, keeping current status`);
                 }
             }
         }
