@@ -1140,6 +1140,14 @@ function handleCancelPackage() {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
+        
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+        
         document.body.appendChild(form);
         form.submit();
     }
