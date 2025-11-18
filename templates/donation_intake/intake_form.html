@@ -23,6 +23,12 @@
     content: " *";
     color: #dc3545;
 }
+.border-bottom-0 {
+    border-bottom: 0 !important;
+}
+.border-top-0 {
+    border-top: 0 !important;
+}
 </style>
 {% endblock %}
 
@@ -100,22 +106,18 @@
                             <table class="table table-hover mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width: 20%">Item</th>
-                                        <th style="width: 8%">Donated Qty</th>
-                                        <th style="width: 12%">Batch No</th>
-                                        <th style="width: 11%">Batch Date</th>
-                                        <th style="width: 11%">Expiry Date</th>
-                                        <th style="width: 8%">UOM</th>
-                                        <th style="width: 10%">Unit Value</th>
-                                        <th style="width: 8%">Usable</th>
-                                        <th style="width: 6%">Defective</th>
-                                        <th style="width: 6%">Expired</th>
+                                        <th style="width: 30%">Item</th>
+                                        <th style="width: 15%">Donated Qty</th>
+                                        <th style="width: 20%">Batch No</th>
+                                        <th style="width: 17.5%">Batch Date</th>
+                                        <th style="width: 17.5%">Expiry Date</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for di in donation_items %}
-                                    <tr class="item-row">
-                                        <td class="align-middle">
+                                    <!-- Row 1: Item, Donated Qty, Batch No, Batch Date, Expiry Date -->
+                                    <tr class="item-row border-bottom-0">
+                                        <td class="align-middle pb-2">
                                             <span class="batch-indicator"></span>
                                             <strong>{{ di.item.item_code }}</strong><br>
                                             <small class="text-muted">{{ di.item.item_name }}</small>
@@ -130,11 +132,11 @@
                                             </span>
                                             {% endif %}
                                         </td>
-                                        <td class="align-middle">
+                                        <td class="align-middle pb-2">
                                             <strong class="text-primary">{{ di.item_qty }}</strong>
                                             <small class="text-muted d-block">{{ di.uom_code }}</small>
                                         </td>
-                                        <td>
+                                        <td class="pb-2">
                                             <input type="text" 
                                                    class="form-control" 
                                                    name="batch_no_{{ di.item_id }}" 
@@ -142,21 +144,31 @@
                                                    {% if di.item.is_batched_flag %}required{% endif %}
                                                    style="text-transform: uppercase;">
                                         </td>
-                                        <td>
+                                        <td class="pb-2">
                                             <input type="date" 
                                                    class="form-control" 
                                                    name="batch_date_{{ di.item_id }}" 
                                                    max="{{ today }}"
                                                    required>
                                         </td>
-                                        <td>
+                                        <td class="pb-2">
                                             <input type="date" 
                                                    class="form-control" 
                                                    name="expiry_date_{{ di.item_id }}" 
                                                    min="{{ today }}"
                                                    {% if di.item.can_expire_flag %}required{% endif %}>
                                         </td>
-                                        <td>
+                                    </tr>
+                                    
+                                    <!-- Row 2: UOM, Unit Value, Usable, Defective, Expired -->
+                                    <tr class="item-row border-top-0">
+                                        <td class="pt-0 pb-3">
+                                            <small class="text-muted">
+                                                <i class="bi bi-arrow-return-right"></i> Quantity Details
+                                            </small>
+                                        </td>
+                                        <td class="pt-0 pb-3">
+                                            <label class="form-label small text-muted mb-1">UOM</label>
                                             <select class="form-select" 
                                                     name="uom_code_{{ di.item_id }}" 
                                                     required>
@@ -168,7 +180,8 @@
                                                 {% endfor %}
                                             </select>
                                         </td>
-                                        <td>
+                                        <td class="pt-0 pb-3">
+                                            <label class="form-label small text-muted mb-1">Unit Value</label>
                                             <input type="number" 
                                                    class="form-control" 
                                                    name="avg_unit_value_{{ di.item_id }}" 
@@ -177,7 +190,8 @@
                                                    placeholder="0.00"
                                                    required>
                                         </td>
-                                        <td>
+                                        <td class="pt-0 pb-3">
+                                            <label class="form-label small text-muted mb-1">Usable</label>
                                             <input type="number" 
                                                    class="form-control" 
                                                    name="usable_qty_{{ di.item_id }}" 
@@ -189,25 +203,31 @@
                                                    onchange="validateQuantities({{ di.item_id }})"
                                                    required>
                                         </td>
-                                        <td>
-                                            <input type="number" 
-                                                   class="form-control" 
-                                                   name="defective_qty_{{ di.item_id }}" 
-                                                   step="0.0001" 
-                                                   min="0"
-                                                   value="0"
-                                                   data-item-id="{{ di.item_id }}"
-                                                   onchange="validateQuantities({{ di.item_id }})">
-                                        </td>
-                                        <td>
-                                            <input type="number" 
-                                                   class="form-control" 
-                                                   name="expired_qty_{{ di.item_id }}" 
-                                                   step="0.0001" 
-                                                   min="0"
-                                                   value="0"
-                                                   data-item-id="{{ di.item_id }}"
-                                                   onchange="validateQuantities({{ di.item_id }})">
+                                        <td class="pt-0 pb-3">
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <label class="form-label small text-muted mb-1">Defective</label>
+                                                    <input type="number" 
+                                                           class="form-control" 
+                                                           name="defective_qty_{{ di.item_id }}" 
+                                                           step="0.0001" 
+                                                           min="0"
+                                                           value="0"
+                                                           data-item-id="{{ di.item_id }}"
+                                                           onchange="validateQuantities({{ di.item_id }})">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small text-muted mb-1">Expired</label>
+                                                    <input type="number" 
+                                                           class="form-control" 
+                                                           name="expired_qty_{{ di.item_id }}" 
+                                                           step="0.0001" 
+                                                           min="0"
+                                                           value="0"
+                                                           data-item-id="{{ di.item_id }}"
+                                                           onchange="validateQuantities({{ di.item_id }})">
+                                                </div>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
