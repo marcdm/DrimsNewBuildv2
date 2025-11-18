@@ -3,7 +3,8 @@
 ## Overview
 DRIMS (Disaster Relief Inventory Management System) is a web-based platform for the Government of Jamaica's ODPEM, designed to manage the full lifecycle of disaster relief supplies. It aims to streamline inventory tracking, donation management, relief request processing, and distribution across multiple warehouses, ensuring compliance with government processes. The system supports disaster event coordination, supply allocation, user administration with RBAC, and comprehensive management of various entities, inventory transfers, location tracking, analytics, and reporting. The project's ambition is to provide a modern, efficient, and user-friendly system for disaster preparedness and response, ensuring robust security features.
 
-## Recent Changes (2025-01-18)
+## Recent Changes (2025-11-18)
+- **Approve Relief Package Workflow**: Implemented complete LM approval workflow with approve_package route (LM-only access), approve.html template reusing prepare.html UI/UX, batch drawer integration for allocation adjustments with FEFO/FIFO rules, Save Draft functionality with delta-based inventory reservation updates, Approve & Dispatch action updating issue_qty and notifying Inventory Clerk, optimistic locking for concurrency control, corrected navigation links (pending_approval queue), and duplicate notification prevention checking package status before processing allocations
 - **Relief Request Full Workflow Access for LM/LO**: Extended complete relief request workflow permissions to LOGISTICS_MANAGER and LOGISTICS_OFFICER roles - create, view, edit, add/edit items, submit, cancel all requests
 - **Smart Routing Logic**: Pure logistics users (without agency_id) redirected to "create on behalf" route with agency selector; after cancel redirected to packaging fulfillment
 - **Dual-Role Support**: Users with both logistics and agency roles can create requests for their own agency using standard form and access all requests via logistics role
@@ -70,7 +71,7 @@ All pages maintain a modern, consistent UI with a comprehensive design system in
 - **Dashboards**: Role-based dashboard routing with 6 specialized views.
 - **Inventory Management**: Two-tier tracking system: warehouse-level stock and batch-level tracking with FEFO/FIFO allocation.
 - **Eligibility Approval Workflow**: Role-based access control and service layer for eligibility decisions.
-- **Package Fulfillment Workflow**: Unified `packaging` blueprint with routes for pending fulfillment and package preparation.
+- **Package Fulfillment Workflow**: Unified `packaging` blueprint with routes for pending fulfillment, package preparation, pending LM approval queue, and package approval with batch-level editing capabilities.
 - **Services**: `ItemStatusService`, `InventoryReservationService`, and `BatchAllocationService`.
 - **Donation Processing Workflow**: Complete CRUD operations for donation headers and items with status transitions, verification tracking, and inventory integration.
 
