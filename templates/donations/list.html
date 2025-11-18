@@ -1,55 +1,219 @@
 {% extends 'base.html' %}
 
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modern-ui.css') }}">
+{% endblock %}
+
 {% block title %}Donations{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <h2 class="text-goj-green"><i class="bi bi-gift"></i> Donations</h2>
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="page-header mb-0">
+            <div class="page-title">
+                <i class="bi bi-gift page-title-icon"></i>
+                <h1 class="page-title-text">Donations</h1>
+            </div>
+            <p class="page-subtitle">Accept and process incoming donations</p>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="{{ url_for('donations.create_donation') }}" class="btn btn-goj">
-                <i class="bi bi-plus-circle"></i> Create Donation
+        <div>
+            <a href="{{ url_for('donations.create_donation') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Accept New Donation
             </a>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive-mobile">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Donor</th>
-                            <th>Event</th>
-                            <th>Received Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for donation in donations %}
-                        <tr>
-                            <td>{{ donation.donation_id }}</td>
-                            <td>{{ donation.donor.donor_name }}</td>
-                            <td>{{ donation.event.event_name }}</td>
-                            <td>{{ donation.received_date }}</td>
-                            <td>
-                                <span class="badge bg-{{ donation.status_code|status_badge('donation') }}">
-                                    {{ donation.status_code|status_label('donation') }}
-                                </span>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="5" class="text-center text-muted">No donations found</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- Summary Metrics -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="metric-card metric-card-info">
+                <div class="metric-card-icon">
+                    <i class="bi bi-inbox"></i>
+                </div>
+                <div class="metric-card-content">
+                    <div class="metric-card-value">{{ status_counts.get('E', 0) }}</div>
+                    <div class="metric-card-label">Entered</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card metric-card-success">
+                <div class="metric-card-icon">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="metric-card-content">
+                    <div class="metric-card-value">{{ status_counts.get('V', 0) }}</div>
+                    <div class="metric-card-label">Verified</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card metric-card-primary">
+                <div class="metric-card-icon">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+                <div class="metric-card-content">
+                    <div class="metric-card-value">{{ status_counts.get('P', 0) }}</div>
+                    <div class="metric-card-label">Processed</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card metric-card-secondary">
+                <div class="metric-card-icon">
+                    <i class="bi bi-gift"></i>
+                </div>
+                <div class="metric-card-content">
+                    <div class="metric-card-value">{{ status_counts.get('all', 0) }}</div>
+                    <div class="metric-card-label">Total Donations</div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Filter Tabs -->
+    <nav class="filter-tabs" role="navigation" aria-label="Donation status filters">
+        <a href="{{ url_for('donations.list_donations', status='all') }}" 
+           class="filter-tab {% if current_filter == 'all' or not current_filter %}active{% endif %}">
+            All Donations
+            <span class="filter-tab-count">{{ status_counts.get('all', 0) }}</span>
+        </a>
+        <a href="{{ url_for('donations.list_donations', status='E') }}" 
+           class="filter-tab {% if current_filter == 'e' %}active{% endif %}">
+            Entered
+            <span class="filter-tab-count">{{ status_counts.get('E', 0) }}</span>
+        </a>
+        <a href="{{ url_for('donations.list_donations', status='V') }}" 
+           class="filter-tab {% if current_filter == 'v' %}active{% endif %}">
+            Verified
+            <span class="filter-tab-count">{{ status_counts.get('V', 0) }}</span>
+        </a>
+        <a href="{{ url_for('donations.list_donations', status='P') }}" 
+           class="filter-tab {% if current_filter == 'p' %}active{% endif %}">
+            Processed
+            <span class="filter-tab-count">{{ status_counts.get('P', 0) }}</span>
+        </a>
+    </nav>
+
+    <!-- Search and Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('donations.list_donations') }}" class="row g-3">
+                <div class="col-md-4">
+                    <label for="search" class="form-label">Search</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           value="{{ search_query }}" placeholder="Search donations...">
+                </div>
+                <div class="col-md-3">
+                    <label for="donor_id" class="form-label">Donor</label>
+                    <select class="form-select" id="donor_id" name="donor_id">
+                        <option value="">All Donors</option>
+                        {% for donor in donors %}
+                        <option value="{{ donor.donor_id }}" {% if donor_filter == donor.donor_id %}selected{% endif %}>
+                            {{ donor.donor_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="event_id" class="form-label">Event</label>
+                    <select class="form-select" id="event_id" name="event_id">
+                        <option value="">All Events</option>
+                        {% for event in events %}
+                        <option value="{{ event.event_id }}" {% if event_filter == event.event_id %}selected{% endif %}>
+                            {{ event.event_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Donations Table -->
+    {% if donations %}
+    <div class="table-responsive-mobile">
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Donor</th>
+                    <th>Event</th>
+                    <th>Description</th>
+                    <th>Received Date</th>
+                    <th>Items</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for donation in donations %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('donations.view_donation', donation_id=donation.donation_id) }}" 
+                           class="table-link">
+                            #{{ donation.donation_id }}
+                        </a>
+                    </td>
+                    <td>
+                        {{ donation.donor.donor_name if donation.donor else 'Unknown' }}
+                        {% if donation.donor and donation.donor.donor_code %}
+                        <div class="table-sku">{{ donation.donor.donor_code }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ donation.event.event_name if donation.event else 'Unknown' }}</td>
+                    <td>{{ donation.donation_desc[:50] }}{% if donation.donation_desc|length > 50 %}...{% endif %}</td>
+                    <td>{{ donation.received_date.strftime('%Y-%m-%d') }}</td>
+                    <td><strong>{{ donation.items|length }}</strong> items</td>
+                    <td>
+                        {% if donation.status_code == 'E' %}
+                        <span class="status-badge status-badge-info">Entered</span>
+                        {% elif donation.status_code == 'V' %}
+                        <span class="status-badge status-badge-success">Verified</span>
+                        {% elif donation.status_code == 'P' %}
+                        <span class="status-badge status-badge-primary">Processed</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('donations.view_donation', donation_id=donation.donation_id) }}" 
+                               class="btn btn-sm btn-outline-primary" title="View">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{{ url_for('donations.edit_donation', donation_id=donation.donation_id) }}" 
+                               class="btn btn-sm btn-outline-secondary" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="bi bi-gift"></i>
+        </div>
+        <h3 class="empty-state-title">No Donations Found</h3>
+        <p class="empty-state-text">
+            {% if current_filter or donor_filter or event_filter or search_query %}
+            No donations match your search criteria. Try adjusting your filters.
+            {% else %}
+            Get started by accepting your first donation.
+            {% endif %}
+        </p>
+        <a href="{{ url_for('donations.create_donation') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Accept New Donation
+        </a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

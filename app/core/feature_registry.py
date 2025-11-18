@@ -325,15 +325,15 @@ class FeatureRegistry:
             'priority': 6
         },
         'donation_management': {
-            'name': 'Manage Donations',
-            'description': 'Record and track donations',
-            'roles': ['LOGISTICS_OFFICER', 'LOGISTICS_MANAGER', 'INVENTORY_CLERK', 'SYSTEM_ADMINISTRATOR'],
+            'name': 'Donations',
+            'description': 'Accept and process donations',
+            'roles': ['LOGISTICS_OFFICER', 'LOGISTICS_MANAGER'],
             'route': 'donations.list_donations',
             'url': '/donations',
             'icon': 'bi-gift',
-            'category': 'master_data',
-            'navigation_group': 'master_data',
-            'priority': 7
+            'category': 'inventory',
+            'navigation_group': 'inventory',
+            'priority': 3
         },
         
         # =================================================================

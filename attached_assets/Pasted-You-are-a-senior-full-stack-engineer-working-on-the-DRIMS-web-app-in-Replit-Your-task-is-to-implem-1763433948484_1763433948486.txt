@@ -1,0 +1,444 @@
+You are a senior full-stack engineer working on the DRIMS web app in Replit.
+
+Your task is to implement Donation Processing using the existing donation and donation_item tables.
+
+Important constraints
+
+Do NOT change the existing database schema or table definitions.
+
+Use the existing authentication and role/permission system.
+
+This feature is for Logistics Manager and Logistics Officer roles only.
+
+Use the existing look-and-feel and layout patterns already used in DRIMS.
+
+0. Roles & Access
+
+Only users with roles Logistics Manager or Logistics Officer should:
+
+See the “Donations” menu/section.
+
+Create, view, and update donations and donation items.
+
+Other roles:
+
+Must not see this menu/section, or
+
+Must receive a “Not authorized” / 403 if they access URLs directly.
+
+Enforce access control both in the UI and on the backend routes.
+
+1. General Flow: Accepting a Donation (Header + Items)
+
+Implement a Donations UI/workflow where a Logistics Manager/Officer can:
+
+Create a donation header record (donation).
+
+Add one or more donation items (donation_item) under the same header.
+
+Rules:
+
+A donation cannot be considered “accepted” / finalized unless:
+
+A valid donation header exists.
+
+At least one donation_item row exists with a positive quantity.
+
+All changes must either:
+
+Be saved together as a single logical operation (header + items), or
+
+Be clearly handled as separate steps with validation at each step:
+
+For example: save header first, then items, but do not allow “finalizing” unless all rules are satisfied.
+
+You can follow a standard pattern:
+
+Step 1: Create/Edit Donation Header.
+
+Step 2: Add/Edit Donation Items.
+
+Step 3: Confirm/Review donation (header + items).
+
+2. Donation Header (Table: donation)
+
+Use the existing donation table as provided (do not alter its schema).
+
+2.1 Required Fields & Validation
+
+The system must not allow saving a donation header unless all of the following are provided and valid:
+
+donor_id (FK to donor)
+
+donation_desc
+
+event_id (FK to event)
+
+custodian_id (FK to custodian)
+
+received_date
+
+status_code (must be 'E', 'V' or 'P')
+
+create_by_id, create_dtime
+
+verify_by_id, verify_dtime
+
+version_nbr
+
+Additional rules:
+
+donation_desc:
+
+Must not be blank.
+
+received_date:
+
+Required.
+
+Must be ≤ current date (no future dates).
+
+If a future date is entered, reject the save with a clear validation message.
+
+status_code:
+
+Allowed values:
+
+E = Entered
+
+V = Verified
+
+P = Processed
+
+For MVP:
+
+The main “accept donation” path will typically save records with status_code = 'E' (Entered).
+
+If business decides to use V, it still must follow the automatic verification field rules defined below.
+
+2.2 Master Data Dropdowns (Header)
+
+For foreign keys on the header, use dropdowns/picklists from master tables:
+
+donor_id:
+
+Dropdown populated from the donor table (e.g., donor name + code).
+
+event_id:
+
+Dropdown populated from the event table.
+
+Default selected value must be the “ADHOC” event (whichever record in the event table represents ADHOC).
+
+custodian_id:
+
+Dropdown populated from the custodian table.
+
+User must not be able to type arbitrary IDs:
+
+The UI should only allow valid options from dropdowns.
+
+If an invalid ID is somehow submitted (e.g., via API), server-side must reject with a clear error.
+
+3. Donation Items (Table: donation_item)
+
+Use the existing donation_item table (do not change schema).
+
+3.1 Required Fields & Validation
+
+A donation_item row must not be saved unless these are provided and valid:
+
+donation_id (FK to an existing donation header)
+
+item_id
+
+item_qty
+
+uom_code
+
+location_name
+
+status_code
+
+create_by_id, create_dtime
+
+verify_by_id, verify_dtime
+
+version_nbr
+
+Rules:
+
+item_qty:
+
+Required.
+
+Must be > 0.00 in the UI.
+
+The DB may allow >= 0.00, but the application must reject 0 as invalid for donation items.
+
+location_name:
+
+Required.
+
+Must not be blank.
+
+Composite key (donation_id, item_id) behavior:
+
+The same item_id must not be added twice to the same donation_id.
+
+If a user attempts to add a duplicate item:
+
+Either show an error like “Item already exists on this donation”, or
+
+Merge/adjust the quantity on the existing row (according to your design).
+
+Do not create duplicate rows with identical (donation_id, item_id).
+
+3.2 Master Data Dropdowns (Items)
+
+item_id:
+
+Selected from a dropdown/picklist populated from the item table (e.g. item code + name).
+
+uom_code:
+
+Selected from a dropdown/picklist populated from the unitofmeasure table.
+
+No arbitrary text values:
+
+User can only choose valid references from these master tables.
+
+Invalid values must cause a server-side validation error.
+
+4. Defaulting & Verification Behaviour (MVP)
+4.1 Donation Header Verification Fields
+
+On creation of a donation header:
+
+create_by_id:
+
+Automatically set to the current user’s ID (Logistics Manager or Officer).
+
+create_dtime:
+
+Automatically set to the current system timestamp.
+
+Since there is no separate verification step in MVP:
+
+verify_by_id must automatically default to the same value as create_by_id.
+
+verify_dtime must automatically default to the same value as create_dtime.
+
+On update of a donation header in MVP:
+
+There is no manual verification workflow.
+
+verify_by_id / verify_dtime can remain as-is or follow the project’s agreed convention, but for MVP there is no extra manual verify step in the UI.
+
+4.2 Donation Item Defaults & Verification Fields
+
+On creation of a donation_item via the “accept donation” UI:
+
+status_code:
+
+Must default to 'V' (Verified).
+
+User does not manually set it in MVP.
+
+create_by_id:
+
+Automatically set to the current user’s ID.
+
+create_dtime:
+
+Automatically set to the current system timestamp.
+
+verify_by_id:
+
+Automatically default equal to create_by_id.
+
+verify_dtime:
+
+Automatically default equal to create_dtime.
+
+The UI must not expose any separate verification workflow for donation_item in MVP.
+
+When a donation_item is updated (e.g. correcting quantity or UOM):
+
+It must still be treated as Verified in MVP.
+
+status_code should remain 'V' unless explicitly changed in a later phase.
+
+5. Status Code Rules (donation_item.status_code)
+
+Allowed values:
+
+P = Pending verification
+
+V = Verified
+
+For the MVP “accept donations” function:
+
+New donation_item rows must be created with status_code = 'V'.
+
+In the UI, this field can be:
+
+Hidden, or
+
+Read-only, always showing ‘Verified’.
+
+The system should store 'V' without requiring user interaction.
+
+6. Audit & Versioning
+6.1 Audit Fields
+
+Donation (header):
+
+On creation:
+
+create_by_id and create_dtime:
+
+Auto-populated.
+
+Not editable afterwards.
+
+Table does not have update_by/update_dtime columns:
+
+Any update should still be tracked by version_nbr and the verify fields as needed.
+
+Donation Item:
+
+On creation:
+
+create_by_id and create_dtime:
+
+Auto-populated.
+
+Not user-editable.
+
+On update:
+
+There are no explicit update_by/update_dtime fields:
+
+Changes must still increment version_nbr.
+
+You may re-use verify fields as needed later, but for MVP just ensure versioning works.
+
+6.2 Version Number & Concurrency
+
+For both donation and donation_item:
+
+On first creation:
+
+Initialize version_nbr (e.g. to 1).
+
+On every successful update:
+
+Increment version_nbr by 1.
+
+Use version_nbr for optimistic locking:
+
+When editing, include version_nbr in the form.
+
+On save, compare with the current DB value.
+
+If mismatched (stale version):
+
+Reject the update.
+
+Show a message like:
+
+“This donation/donation item has been modified by another user. Please reload and try again.”
+
+7. Querying & Display
+7.1 Donation Header View
+
+When viewing a donation:
+
+The header section must show:
+
+Donor (name or code from donor_id)
+
+Event (from event_id)
+
+Custodian (from custodian_id)
+
+received_date
+
+status_code (Entered / Verified / Processed)
+
+comments_text (if present)
+
+7.2 Donation Items List Under a Donation
+
+For each donation_item row belonging to the header:
+
+Show:
+
+Item (code and/or name from item_id)
+
+item_qty
+
+uom_code
+
+location_name
+
+status_code (V in MVP)
+
+Any item-level comments if they exist in the schema.
+
+7.3 Search / Filter
+
+Implement search/filter for donations:
+
+Filter by:
+
+Donor
+
+Event
+
+Custodian
+
+Received date range
+
+status_code on the header
+
+The item list view is always scoped to a particular donation_id (i.e., show all donation_item rows for the selected header).
+
+8. UX / UI Guidelines
+
+Follow existing DRIMS UI patterns (layout, buttons, forms, validation).
+
+Forms must:
+
+Show clear validation errors near the fields.
+
+Prevent save on invalid data.
+
+The donation workflow should be intuitive:
+
+From list → create header → add items → review → save/confirm.
+
+Ensure the pages are usable on typical screen sizes (desktop and tablet at minimum).
+
+Deliverables:
+
+Backend routes/handlers for:
+
+Creating, updating, viewing donation headers.
+
+Creating, updating, listing donation items under a header.
+
+Frontend templates/pages for:
+
+Donation list + search.
+
+Donation header create/edit/view.
+
+Donation item add/edit within a donation.
+
+Proper access control for Logistics Manager and Logistics Officer roles.
+
+Full validation, defaulting, and optimistic locking as described above, without changing the database schema.
+
+Use the existing DRIMS code structure and patterns to implement this Donation Processing feature.
