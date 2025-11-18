@@ -50,7 +50,7 @@
             {% for req in requests %}
             <tr>
                 <td>
-                    <a href="{{ url_for('packaging.review_approval', reliefrqst_id=req.reliefrqst_id) }}" 
+                    <a href="{{ url_for('packaging.approve_package', reliefrqst_id=req.reliefrqst_id) }}" 
                        class="table-link"
                        aria-label="Review package for RR-{{ '%06d'|format(req.reliefrqst_id) }}">
                         RR-{{ '%06d'|format(req.reliefrqst_id) }}
@@ -87,7 +87,7 @@
                     {{ status_badge('pending_approval', 'Pending LM Approval') }}
                 </td>
                 <td>
-                    <a href="{{ url_for('packaging.review_approval', reliefrqst_id=req.reliefrqst_id) }}" 
+                    <a href="{{ url_for('packaging.approve_package', reliefrqst_id=req.reliefrqst_id) }}" 
                        class="btn btn-relief-primary btn-sm"
                        aria-label="Review RR-{{ '%06d'|format(req.reliefrqst_id) }}">
                         <i class="bi bi-clipboard-check"></i> Review & Approve

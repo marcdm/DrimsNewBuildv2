@@ -1,0 +1,1152 @@
+{% extends 'base.html' %}
+{% from 'relief_requests/_status_badge.html' import status_badge %}
+{% from 'components/_workflow_progress.html' import render_workflow_progress %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/relief-requests-ui.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/batch-drawer.css') }}">
+<style>
+.page-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #009639;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.page-subtitle {
+    font-size: 1rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+.lock-info-banner {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.lock-info-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.lock-info-content i {
+    font-size: 1.25rem;
+    color: #0c5460;
+}
+
+.lock-info-text h6 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #0c5460;
+}
+
+.lock-info-text p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #0c5460;
+}
+
+.btn-release-lock {
+    background: #fff;
+    border: 1px solid #0c5460;
+    color: #0c5460;
+    padding: 0.375rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-release-lock:hover {
+    background: #0c5460;
+    color: #fff;
+}
+
+.metric-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.metric-card {
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.metric-icon {
+    font-size: 2rem;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+}
+
+.metric-icon.total {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.metric-icon.filled {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.metric-icon.partial {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.metric-icon.unallocated {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.metric-content {
+    flex: 1;
+}
+
+.metric-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #212529;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.search-filter-bar {
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-input-wrapper {
+    flex: 1;
+    min-width: 250px;
+    position: relative;
+}
+
+.search-input-wrapper i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+}
+
+.search-input-wrapper input {
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.filter-dropdown {
+    min-width: 150px;
+}
+
+.btn-jump {
+    background: #007bff;
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.btn-jump:hover {
+    background: #0056b3;
+}
+
+.items-table {
+    width: 100%;
+    background: #fff;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+}
+
+.items-table table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Column Widths for Proper Alignment */
+.items-table th:nth-child(1),
+.items-table td:nth-child(1) {
+    width: 18%;
+}
+
+.items-table th:nth-child(2),
+.items-table td:nth-child(2) {
+    width: 10%;
+}
+
+.items-table th:nth-child(3),
+.items-table td:nth-child(3) {
+    width: 38%;
+}
+
+.items-table th:nth-child(4),
+.items-table td:nth-child(4) {
+    width: 10%;
+}
+
+.items-table th:nth-child(5),
+.items-table td:nth-child(5) {
+    width: 10%;
+}
+
+.items-table th:nth-child(6),
+.items-table td:nth-child(6) {
+    width: 14%;
+}
+
+.items-table thead {
+    background: #f8f9fa;
+}
+
+.items-table th {
+    padding: 0.75rem 0.875rem;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.items-table td {
+    padding: 0.75rem 0.875rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f3f5;
+    word-wrap: break-word;
+}
+
+.items-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.item-name {
+    font-weight: 600;
+    color: #212529;
+}
+
+.item-sku {
+    font-size: 0.8125rem;
+    color: #6c757d;
+}
+
+.hub-allocation-inline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    width: 100%;
+}
+
+.warehouse-allocation-row {
+    display: grid;
+    grid-template-columns: 45px 1fr 75px;
+    align-items: center;
+    gap: 8px;
+    padding: 0.25rem 0;
+}
+
+.warehouse-allocation-row .warehouse-stock {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #212529;
+    text-align: right;
+    padding-right: 4px;
+}
+
+.warehouse-allocation-row .warehouse-name {
+    font-size: 0.8125rem;
+    color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.allocation-input {
+    width: 75px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    text-align: right;
+}
+
+.hub-select {
+    min-width: 150px;
+    max-width: 200px;
+}
+
+.qty-input {
+    width: 100px;
+}
+
+.stock-info {
+    font-size: 0.8125rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.status-badge-inline {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.status-filled {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.status-partial {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.status-unallocated {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.status-waiting {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-requested {
+    background: #f5f5f5;
+    color: #616161;
+}
+
+.workflow-sidebar-modern {
+    background: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.workflow-header {
+    background: #007bff;
+    color: #fff;
+    padding: 1rem 1.25rem;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.workflow-steps {
+    padding: 1.5rem 1.25rem;
+}
+
+.workflow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.workflow-step:last-child {
+    margin-bottom: 0;
+}
+
+.workflow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 30px;
+    width: 2px;
+    height: calc(100% + 1rem);
+    background: #e9ecef;
+}
+
+.step-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    z-index: 1;
+    background: #fff;
+}
+
+.step-icon.completed {
+    background: #28a745;
+    color: #fff;
+}
+
+.step-icon.active {
+    background: #007bff;
+    color: #fff;
+    border: 3px solid #007bff;
+}
+
+.step-icon.pending {
+    border: 2px solid #28a745;
+    color: #6c757d;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #212529;
+    margin-bottom: 0.125rem;
+}
+
+.step-description {
+    font-size: 0.8125rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+.notes-section {
+    padding: 1.25rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.notes-section h6 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.75rem;
+}
+
+.notes-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    resize: vertical;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
+.status-dropdown {
+    min-width: 150px;
+    font-size: 0.875rem;
+}
+
+.status-dropdown.is-invalid {
+    border-color: #dc3545;
+}
+
+.violation-alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}
+
+{% block title %}Prepare Package - RR-{{ '%06d'|format(relief_request.reliefrqst_id) }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Back Button -->
+    <div class="mb-3">
+        <a href="{{ url_for('packaging.pending_approval') }}" class="btn-back">
+            <i class="bi bi-arrow-left"></i>
+            Back
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Main Content -->
+        <div class="col-lg-9 col-xl-9">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">
+                        <i class="bi bi-clipboard-check"></i>
+                        Approve Relief Package
+                    </h1>
+                    <p class="page-subtitle">
+                        {{ relief_request.tracking_no if relief_request.tracking_no else 'RR-' + '%06d'|format(relief_request.reliefrqst_id) }} • {{ relief_request.agency.agency_name if relief_request.agency else 'Unknown Agency' }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Lock Info Banner -->
+            {% if is_locked_by_me %}
+            <div class="lock-info-banner">
+                <div class="lock-info-content">
+                    <i class="bi bi-lock-fill"></i>
+                    <div class="lock-info-text">
+                        <h6>You are currently editing this relief package</h6>
+                        <p>Editing session started 0 minutes ago. Your lock will automatically expire after 15 minutes of inactivity.</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-release-lock" onclick="releaseLock()">
+                    <i class="bi bi-unlock"></i>
+                    Release Lock
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- Metric Cards -->
+            <div class="metric-cards">
+                <div class="metric-card">
+                    <div class="metric-icon total">
+                        <i class="bi bi-box"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="metric-total">{{ relief_request.items|length }}</div>
+                        <div class="metric-label">Total Items</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon filled">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="metric-filled">0</div>
+                        <div class="metric-label">Fully Allocated</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon partial">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="metric-partial">0</div>
+                        <div class="metric-label">Partial</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon unallocated">
+                        <i class="bi bi-exclamation-circle"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="metric-unallocated">{{ relief_request.items|length }}</div>
+                        <div class="metric-label">Unallocated</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div class="search-filter-bar">
+                <div class="search-input-wrapper">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search items by name or SKU..." onkeyup="filterItems()">
+                </div>
+                <select class="form-select filter-dropdown" id="filterDropdown" onchange="filterItems()">
+                    <option value="all">All Items</option>
+                    <option value="unallocated">Unallocated</option>
+                    <option value="partial">Partially Allocated</option>
+                    <option value="filled">Fully Allocated</option>
+                </select>
+                <button type="button" class="btn-jump" onclick="jumpToFirstUnallocated()">
+                    <i class="bi bi-arrow-down-circle"></i>
+                    Jump to First Unallocated
+                </button>
+            </div>
+
+            <!-- Items Table -->
+            <div class="table-responsive-mobile">
+                <form method="POST" id="packagingForm" action="{{ url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id) }}">
+                    <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Item</th>
+                            <th scope="col">Requested</th>
+                            <th scope="col">Batch Allocation</th>
+                            <th scope="col">Allocated</th>
+                            <th scope="col">Remaining</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsTableBody">
+                        {% for item in relief_request.items %}
+                        <tr class="item-row" 
+                            data-item-id="{{ item.item_id }}" 
+                            data-item-name="{{ item.item.item_desc if item.item else 'Unknown' }}"
+                            data-item-sku="{{ item.item.sku_code if item.item and item.item.sku_code else '' }}">
+                            <td>
+                                <div class="item-info">
+                                    <span class="item-name">{{ item.item.item_desc if item.item else 'Unknown Item' }}</span>
+                                    {% if item.item and item.item.sku_code %}
+                                    <span class="item-sku">SKU: {{ item.item.sku_code }}</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <strong data-requested-qty="{{ item.request_qty }}">{{ item.request_qty }}</strong>
+                                {% if item.item and item.item.default_uom %}
+                                <div class="item-sku">{{ item.item.default_uom.uom_desc }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button 
+                                    type="button" 
+                                    class="btn btn-outline select-batches-btn"
+                                    onclick="openBatchDrawer({{ item.item_id }}, '{{ item.item.item_desc if item.item else 'Unknown Item' }}', {{ item.request_qty }})"
+                                    data-item-id="{{ item.item_id }}">
+                                    <i class="bi bi-clipboard-check"></i>
+                                    Select Batches
+                                </button>
+                                {# Hidden inputs for batch allocations will be added here by JavaScript #}
+                            </td>
+                            <td>
+                                {% set allocated_qty = item_status_options.get(item.item_id, {}).get('total_allocated', 0) %}
+                                <strong class="total-allocated" id="total_{{ item.item_id }}">{{ allocated_qty }}</strong>
+                            </td>
+                            <td>
+                                {% set remaining_qty = item.request_qty|float - allocated_qty %}
+                                <strong class="remaining-qty" id="remaining_{{ item.item_id }}">{{ remaining_qty }}</strong>
+                            </td>
+                            <td>
+                                {% set status_opts = item_status_options.get(item.item_id, {}) %}
+                                {% set allowed = status_opts.get('allowed_codes', [item.status_code]) %}
+                                {% set auto = status_opts.get('auto_status', item.status_code) %}
+                                <select 
+                                    class="form-select form-select-sm status-dropdown" 
+                                    name="status_{{ item.item_id }}" 
+                                    id="status_{{ item.item_id }}"
+                                    data-item-id="{{ item.item_id }}"
+                                    data-requested-qty="{{ item.request_qty }}"
+                                    data-auto-status="{{ auto }}"
+                                    data-allowed-codes="{{ allowed|join(',') }}"
+                                    onchange="toggleReasonField({{ item.item_id }})">
+                                    {% for code in allowed %}
+                                    {% set label = status_map.get(code, {}).get('desc', code) %}
+                                    <option value="{{ code }}" {% if code == item.status_code %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback" id="status_error_{{ item.item_id }}" style="display: none;"></div>
+                                
+                                <!-- Reason field for D/L statuses -->
+                                <div class="status-reason-wrapper" id="reason_wrapper_{{ item.item_id }}" style="display: none; margin-top: 0.5rem;">
+                                    <textarea 
+                                        class="form-control form-control-sm" 
+                                        name="status_reason_{{ item.item_id }}"
+                                        id="status_reason_{{ item.item_id }}"
+                                        rows="2"
+                                        placeholder="Provide reason for this decision..."
+                                        style="font-size: 0.8125rem; resize: vertical;">{{ item.status_reason_desc or '' }}</textarea>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button type="submit" name="action" value="save_draft" class="btn-relief-secondary">
+                        <i class="bi bi-save"></i>
+                        Save Draft
+                    </button>
+                    <button type="submit" name="action" value="approve_and_dispatch" class="btn-relief-primary" id="sendForDispatchBtn">
+                        <i class="bi bi-truck"></i>
+                        Approve and Dispatch
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Cancel Button -->
+            <div style="margin-top: 1rem;">
+                <a href="{{ url_for('packaging.pending_approval') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i>
+                    Back to Approval Queue
+                </a>
+            </div>
+            </div>
+        </div>
+
+        <!-- Workflow Sidebar -->
+        <div class="col-lg-3 col-xl-3">
+            {{ render_workflow_progress([
+                {'title': 'Submitted', 'description': relief_request.agency.agency_name if relief_request.agency else 'Agency', 'status': 'completed'},
+                {'title': 'Prepared', 'description': 'Stock allocated', 'status': 'completed'},
+                {'title': 'Approval', 'description': 'Manager review', 'status': 'active'},
+                {'title': 'Dispatch', 'description': 'Transfer stock', 'status': 'pending'}
+            ], notes_enabled=True) }}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Modern Packaging UI -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load inventory levels for all items
+    loadAllInventory();
+    
+    // Add event listeners for allocation inputs
+    document.querySelectorAll('.allocation-input').forEach(input => {
+        input.addEventListener('input', function() {
+            const itemId = this.dataset.itemId;
+            const warehouseId = this.dataset.warehouseId;
+            
+            // Update warehouse stock display in real-time
+            updateWarehouseStock(itemId, warehouseId);
+            
+            // Update item calculations and metrics
+            updateItemCalculations(itemId);
+            updateMetrics();
+        });
+    });
+    
+    // Form validation on submit
+    document.getElementById('packagingForm').addEventListener('submit', function(e) {
+        // Skip validation for cancel button
+        const submitter = e.submitter;
+        if (!submitter) return; // Browser compatibility
+        
+        const action = submitter.value || submitter.getAttribute('value');
+        
+        // Only validate for submit actions, not cancel or save_draft
+        if (action === 'submit_for_approval' || action === 'approve_and_dispatch') {
+            if (!validateAllAllocations()) {
+                e.preventDefault();
+                alert('Please fix allocation errors before submitting. Check that:\n- No allocation exceeds available stock\n- No total allocation exceeds requested quantity');
+            }
+        }
+    });
+    
+    // Calculate initial state for pre-populated allocations
+    const itemIds = [...new Set([...document.querySelectorAll('.item-row')].map(row => row.dataset.itemId))];
+    itemIds.forEach(itemId => {
+        updateItemCalculations(itemId);
+    });
+    
+    // Update initial metrics
+    updateMetrics();
+});
+
+function loadAllInventory() {
+    document.querySelectorAll('.allocation-input').forEach(input => {
+        const itemId = input.dataset.itemId;
+        const warehouseId = input.dataset.warehouseId;
+        loadInventory(itemId, warehouseId);
+    });
+}
+
+function loadInventory(itemId, warehouseId) {
+    const stockElement = document.getElementById(`stock_${itemId}_${warehouseId}`);
+    
+    fetch(`/packaging/api/inventory/${itemId}/${warehouseId}`)
+        .then(response => response.json())
+        .then(data => {
+            const usable = parseFloat(data.usable_qty || 0);
+            stockElement.dataset.usableQty = usable;
+            stockElement.dataset.originalQty = usable;
+            
+            // Update display with current allocation
+            updateWarehouseStock(itemId, warehouseId);
+        })
+        .catch(error => {
+            stockElement.textContent = '?';
+            stockElement.style.color = '#dc3545';
+            stockElement.title = 'Error loading stock';
+            console.error('Inventory load error:', error);
+        });
+}
+
+function updateWarehouseStock(itemId, warehouseId) {
+    const stockElement = document.getElementById(`stock_${itemId}_${warehouseId}`);
+    const allocationInput = document.getElementById(`allocation_${itemId}_${warehouseId}`);
+    
+    const originalQty = parseFloat(stockElement.dataset.originalQty || 0);
+    const allocated = parseFloat(allocationInput.value || 0);
+    const remaining = Math.max(0, originalQty - allocated);
+    
+    stockElement.textContent = remaining.toFixed(0);
+    
+    if (remaining === 0) {
+        stockElement.style.color = '#dc3545';
+        stockElement.title = `No stock remaining (${allocated} allocated from ${originalQty} available)`;
+    } else if (allocated > 0) {
+        stockElement.style.color = '#f57c00';
+        stockElement.title = `${remaining} remaining (${allocated} allocated from ${originalQty} available)`;
+    } else {
+        stockElement.style.color = '#212529';
+        stockElement.title = '';
+    }
+}
+
+function updateItemCalculations(itemId) {
+    // Get allocation inputs for this item
+    const allocationInputs = document.querySelectorAll(`.allocation-input[data-item-id="${itemId}"]`);
+    
+    // Get requested quantity
+    const row = document.querySelector(`tr[data-item-id="${itemId}"]`);
+    const requestedQty = parseFloat(row.querySelector('[data-requested-qty]').dataset.requestedQty);
+    
+    let totalAllocated = 0;
+    
+    if (allocationInputs.length > 0) {
+        // Calculate from allocation inputs (after batch drawer use)
+        allocationInputs.forEach(input => {
+            totalAllocated += parseFloat(input.value || 0);
+        });
+        
+        // Update displayed totals
+        const totalElement = document.getElementById(`total_${itemId}`);
+        totalElement.textContent = totalAllocated.toFixed(2);
+        
+        const remaining = requestedQty - totalAllocated;
+        const remainingElement = document.getElementById(`remaining_${itemId}`);
+        remainingElement.textContent = remaining.toFixed(2);
+    } else {
+        // Read from displayed values (server-calculated on page load)
+        const totalElement = document.getElementById(`total_${itemId}`);
+        totalAllocated = parseFloat(totalElement.textContent || 0);
+    }
+    
+    // Always update status dropdown and validation (even on page load)
+    updateStatusDropdown(itemId, totalAllocated, requestedQty);
+    validateQuantityLimit(itemId, totalAllocated, requestedQty);
+}
+
+function updateStatusDropdown(itemId, allocated, requested) {
+    const statusDropdown = document.getElementById(`status_${itemId}`);
+    if (!statusDropdown) return;
+    
+    const autoStatus = statusDropdown.dataset.autoStatus;
+    const currentValue = statusDropdown.value;
+    
+    // Determine auto status based on allocation
+    let newAutoStatus;
+    if (allocated === 0) {
+        newAutoStatus = 'R';  // Requested
+    } else if (allocated >= requested) {
+        newAutoStatus = 'F';  // Filled
+    } else {
+        newAutoStatus = 'P';  // Partly filled
+    }
+    
+    // Update data attribute
+    statusDropdown.dataset.autoStatus = newAutoStatus;
+    
+    // Auto-select if current status doesn't match the new allocation state
+    // Only auto-change for automatic statuses (R, P, F), not manual ones (D, U, W, L)
+    const autoStatuses = ['R', 'P', 'F'];
+    if (autoStatuses.includes(currentValue)) {
+        statusDropdown.value = newAutoStatus;
+    }
+    
+    // Update allowed options based on allocation state
+    updateAllowedStatusOptions(itemId, allocated, requested);
+}
+
+function updateAllowedStatusOptions(itemId, allocated, requested) {
+    const statusDropdown = document.getElementById(`status_${itemId}`);
+    if (!statusDropdown) return;
+    
+    // Determine allowed status codes based on allocation
+    let allowedCodes;
+    if (allocated === 0) {
+        allowedCodes = ['R', 'D', 'U', 'W'];
+    } else if (allocated >= requested) {
+        allowedCodes = ['F'];
+    } else {
+        allowedCodes = ['P', 'L'];
+    }
+    
+    // Get current value before updating options
+    const currentValue = statusDropdown.value;
+    
+    // CRITICAL: Preserve current selection even if outside allowed codes
+    // This prevents discarding legitimate manual statuses (e.g., Denied after partial allocation)
+    const finalAllowedCodes = [...allowedCodes];
+    if (currentValue && !allowedCodes.includes(currentValue)) {
+        finalAllowedCodes.push(currentValue);
+    }
+    
+    // Store status map from template
+    const statusMap = {{ status_map|tojson }};
+    
+    // Rebuild dropdown options
+    statusDropdown.innerHTML = '';
+    finalAllowedCodes.forEach(code => {
+        const option = document.createElement('option');
+        option.value = code;
+        option.textContent = statusMap[code]?.desc || code;
+        if (code === currentValue) {
+            option.selected = true;
+        }
+        statusDropdown.appendChild(option);
+    });
+    
+    // Update data attribute with allowed codes
+    statusDropdown.dataset.allowedCodes = allowedCodes.join(',');
+}
+
+function validateQuantityLimit(itemId, allocated, requested) {
+    const errorDiv = document.getElementById(`status_error_${itemId}`);
+    const statusDropdown = document.getElementById(`status_${itemId}`);
+    
+    if (allocated > requested) {
+        statusDropdown.classList.add('is-invalid');
+        errorDiv.textContent = `Total allocated (${allocated.toFixed(2)}) exceeds requested (${requested.toFixed(2)})`;
+        errorDiv.style.display = 'block';
+        return false;
+    } else {
+        statusDropdown.classList.remove('is-invalid');
+        errorDiv.style.display = 'none';
+        return true;
+    }
+}
+
+function toggleReasonField(itemId) {
+    const statusDropdown = document.getElementById(`status_${itemId}`);
+    const reasonWrapper = document.getElementById(`reason_wrapper_${itemId}`);
+    const reasonField = document.getElementById(`status_reason_${itemId}`);
+    
+    if (!statusDropdown || !reasonWrapper) return;
+    
+    const selectedStatus = statusDropdown.value;
+    
+    // Show reason field for D (Denied) or L (Allowed Limit)
+    if (selectedStatus === 'D' || selectedStatus === 'L') {
+        reasonWrapper.style.display = 'block';
+        reasonField.setAttribute('required', 'required');
+    } else {
+        reasonWrapper.style.display = 'none';
+        reasonField.removeAttribute('required');
+        reasonField.value = ''; // Clear the field when hidden
+    }
+}
+
+// Initialize reason fields on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const statusDropdowns = document.querySelectorAll('.status-dropdown');
+    statusDropdowns.forEach(dropdown => {
+        const itemId = dropdown.dataset.itemId;
+        if (itemId) {
+            toggleReasonField(itemId);
+        }
+    });
+});
+
+function updateMetrics() {
+    const totalItems = document.querySelectorAll('.item-row').length;
+    let fullyAllocated = 0;
+    let partiallyAllocated = 0;
+    let unallocated = 0;
+    
+    document.querySelectorAll('.item-row').forEach(row => {
+        const itemId = row.dataset.itemId;
+        const requestedQty = parseFloat(row.querySelector('[data-requested-qty]').dataset.requestedQty);
+        
+        // Read the displayed total allocated value (which may be server-calculated or JS-updated)
+        const totalAllocatedElement = document.getElementById(`total_${itemId}`);
+        const totalAllocated = parseFloat(totalAllocatedElement.textContent || 0);
+        
+        if (totalAllocated === 0) {
+            unallocated++;
+        } else if (totalAllocated >= requestedQty) {
+            fullyAllocated++;
+        } else {
+            partiallyAllocated++;
+        }
+    });
+    
+    document.getElementById('metric-total').textContent = totalItems;
+    document.getElementById('metric-filled').textContent = fullyAllocated;
+    document.getElementById('metric-partial').textContent = partiallyAllocated;
+    document.getElementById('metric-unallocated').textContent = unallocated;
+}
+
+function filterItems() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const filterValue = document.getElementById('filterDropdown').value;
+    
+    document.querySelectorAll('.item-row').forEach(row => {
+        const itemName = row.dataset.itemName.toLowerCase();
+        const itemSku = row.dataset.itemSku.toLowerCase();
+        const itemId = row.dataset.itemId;
+        
+        // Check search match
+        const searchMatch = itemName.includes(searchTerm) || itemSku.includes(searchTerm);
+        
+        // Check filter match
+        let filterMatch = true;
+        if (filterValue !== 'all') {
+            const requestedQty = parseFloat(row.querySelector('[data-requested-qty]').dataset.requestedQty);
+            // Read the displayed total allocated value
+            const totalAllocatedElement = document.getElementById(`total_${itemId}`);
+            const totalAllocated = parseFloat(totalAllocatedElement.textContent || 0);
+            
+            if (filterValue === 'unallocated') {
+                filterMatch = totalAllocated === 0;
+            } else if (filterValue === 'partial') {
+                filterMatch = totalAllocated > 0 && totalAllocated < requestedQty;
+            } else if (filterValue === 'filled') {
+                filterMatch = totalAllocated >= requestedQty;
+            }
+        }
+        
+        // Show or hide row
+        if (searchMatch && filterMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function jumpToFirstUnallocated() {
+    const rows = document.querySelectorAll('.item-row');
+    
+    for (let row of rows) {
+        const itemId = row.dataset.itemId;
+        // Read the displayed total allocated value
+        const totalAllocatedElement = document.getElementById(`total_${itemId}`);
+        const totalAllocated = parseFloat(totalAllocatedElement.textContent || 0);
+        
+        if (totalAllocated === 0 && row.style.display !== 'none') {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.style.backgroundColor = '#fff3cd';
+            setTimeout(() => {
+                row.style.backgroundColor = '';
+            }, 2000);
+            return;
+        }
+    }
+    
+    alert('No unallocated items found.');
+}
+
+function validateAllAllocations() {
+    let valid = true;
+    const errors = [];
+    
+    // Validate individual allocations against stock
+    document.querySelectorAll('.allocation-input').forEach(input => {
+        const itemId = input.dataset.itemId;
+        const warehouseId = input.dataset.warehouseId;
+        const allocated = parseFloat(input.value || 0);
+        const stockElement = document.getElementById(`stock_${itemId}_${warehouseId}`);
+        const usableQty = parseFloat(stockElement.dataset.usableQty || 0);
+        
+        if (allocated > usableQty) {
+            valid = false;
+            input.style.borderColor = '#dc3545';
+            input.style.boxShadow = '0 0 0 0.2rem rgba(220,53,69,.25)';
+        } else {
+            input.style.borderColor = '';
+            input.style.boxShadow = '';
+        }
+    });
+    
+    // Validate total allocations don't exceed requested
+    document.querySelectorAll('.item-row').forEach(row => {
+        const itemId = row.dataset.itemId;
+        const requestedQty = parseFloat(row.querySelector('[data-requested-qty]').dataset.requestedQty);
+        
+        let totalAllocated = 0;
+        document.querySelectorAll(`.allocation-input[data-item-id="${itemId}"]`).forEach(input => {
+            totalAllocated += parseFloat(input.value || 0);
+        });
+        
+        if (totalAllocated > requestedQty) {
+            valid = false;
+            document.getElementById(`total_${itemId}`).style.color = '#dc3545';
+        } else {
+            document.getElementById(`total_${itemId}`).style.color = '';
+        }
+    });
+    
+    return valid;
+}
+
+function releaseLock() {
+    if (confirm('Are you sure you want to release the lock? Any unsaved changes will be lost.')) {
+        window.location.href = '{{ url_for("packaging.pending_approval") }}';
+    }
+}
+
+function handleCancelPackage() {
+    if (confirm('Cancel package preparation?\n\nThis will:\n• Delete all draft allocations\n• Release all inventory reservations\n• Release the fulfillment lock\n\nThis action cannot be undone.')) {
+        // Create and submit a form to POST to the cancel route
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("packaging.pending_approval") }}';
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+{# Batch Allocation Module #}
+<script src="{{ url_for('static', filename='js/batch-allocation.js') }}"></script>
+
+{# Batch Selection Drawer #}
+{% include 'packaging/_batch_drawer.html' %}
+
+{% endblock %}

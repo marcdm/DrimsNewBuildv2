@@ -1,0 +1,87 @@
+Update the LM-only “Approve Relief Package” workflow with the following behaviour (no database schema changes; reuse existing UI, FEFO/FIFO logic, and navigation):
+1. LM-only access & duplicate protection
+•	Only users with Logistics Manager (LM) permissions can open the Approve Relief Package page or act on packages in the Awaiting LM Approval queue.
+•	Users without LM permission must be blocked (from both notifications and queue links) and see an access-denied message.
+•	If a package is already in Awaiting LM Approval, clicking Submit for approval again must not create duplicate queue entries or duplicate notifications.
+2. Navigation from notifications and queue
+•	Clicking a package in the LM Awaiting Approval queue or an LM approval notification must:
+o	Navigate to the Approve Relief Package page.
+o	Load the latest saved state of the package (header, items, allocations, statuses).
+3. Approve Relief Package page – layout & data
+•	Use the same UI layout and structure as Prepare Relief Package (same look and feel).
+•	Show a Prepared Allocations grid for each requested item, including:
+o	Allocated Qty = sum of all batch allocations for that item.
+o	Status (Filled / Partly Filled / Unavailable / Requested, etc.) derived from Requested Qty vs Allocated Qty, using the same logic as in Prepare.
+•	Provide LM with these actions:
+o	Select Batches (per item) to open the side drawer.
+o	Save Draft (save changes without approving).
+o	Approve and Dispatch to Inventory Clerk (final approval).
+4. Side drawer for LM adjustments
+•	Select Batches must open the same side drawer UI used in Prepare, with the main page visible in the background.
+•	Every time the drawer opens for an item, pre-populate it with all existing allocations for that item (from Prepare + any LM edits):
+o	Warehouse name, batch no, batch date, expiry date, and currently allocated quantity per batch.
+o	Input fields must be pre-filled with the current allocated quantities (never reset to zero).
+•	Respect the same FEFO/FIFO rules as Prepare:
+o	If can_expire_flag = TRUE: sort by earliest expiry date, then oldest batch date.
+o	If can_expire_flag = FALSE: sort by oldest batch date (FIFO).
+o	Do not display expired batches.
+•	LM can adjust quantities per batch, but:
+o	Must not allocate from a later batch while an earlier eligible batch still has unused usable_qty.
+•	Drawer validation:
+o	Prevent inputs that exceed the batch’s usable_qty.
+o	Prevent total allocated for that item from exceeding its Requested Qty.
+o	On validation failure, keep the drawer open and show clear, specific error messages (batch-level or item-level).
+•	On saving/closing the drawer:
+o	Update the main grid for that item with new Allocated Qty, Remaining Qty, and Status (Filled / Partly Filled, etc.).
+o	Keep the package in Awaiting LM Approval until LM explicitly approves.
+5. Inventory impact (itembatch + inventory)
+•	On every successful drawer save, update itembatch quantities delta-based:
+o	Adjust reserved_qty up/down according to the change in allocated quantity for that batch.
+o	Adjust usable_qty inversely, ensuring:
+	usable_qty >= 0
+	reserved_qty <= usable_qty
+•	Changes in Approve must remain consistent with allocations from Prepare:
+o	If LM reduces an allocation, reserved_qty decreases and usable_qty increases.
+o	If LM increases an allocation, reserved_qty increases and usable_qty decreases, but never below zero.
+•	If, due to concurrent operations, a batch no longer has enough usable_qty when LM tries to increase allocations:
+o	Reject the save for that drawer.
+o	Show an error telling the LM the batch no longer has enough available quantity and that they should refresh data.
+6. Save Draft vs Approve
+•	Save Draft (LM):
+o	Persist all allocation changes and corresponding itembatch reserved_qty/usable_qty updates.
+o	Keep the package in Awaiting LM Approval.
+o	Do not send notifications to the Inventory Clerk.
+o	Keep the package visible in the LM’s Awaiting Approval queue.
+•	Approve Package (Approve and Dispatch to Inventory Clerk):
+o	Validate before committing:
+	No negative usable_qty.
+	No over-allocation beyond Requested Qty.
+	No version conflicts (see optimistic locking).
+o	On success:
+	Update reliefrqst_item.issue_qty for each item to equal the total allocated qty.
+	Update the inventory table for each item, using inventory_id and item_id from itembatch to locate the impacted inventory rows and apply the final quantity changes.
+	Set package workflow status to “Ready for Dispatch”.
+	Remove it from LM’s Awaiting Approval queue.
+	Create a new entry in the Inventory Clerk’s “Awaiting Dispatch” queue.
+	Send a notification to the Inventory Clerk containing:
+	Relief request / package identifier.
+	Originating warehouse(s).
+	Date/time of approval.
+	Clicking that notification or queue item must open the Dispatch / package-ready view defined in the existing Dispatch process.
+7. Optimistic locking & versioning
+•	Use version_nbr for optimistic locking on:
+o	Package header (e.g., reliefpkg).
+o	Package items (reliefpkg_item).
+o	Affected itembatch rows.
+•	On every drawer save, Save Draft, or Approve:
+o	Read version_nbr from the UI state.
+o	Compare it to the current version_nbr in the database.
+•	If any mismatch is detected (record modified since page load):
+o	Reject the operation and do not apply partial changes.
+o	Show a clear message, e.g.:
+	“This relief package or one of its batches has been updated by another user. Please refresh and try again.”
+•	On successful update, increment the relevant version_nbr fields by 1 for:
+o	The package header.
+o	Any modified package items.
+o	Any modified itembatch records.
+•	Wrap each save/approve operation in a single transaction so that either all changes succeed or everything is rolled back.

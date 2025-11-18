@@ -211,6 +211,300 @@ def review_approval(reliefrqst_id):
         return redirect(url_for('packaging.review_approval', reliefrqst_id=reliefrqst_id))
 
 
+@packaging_bp.route('/<int:reliefrqst_id>/approve', methods=['GET', 'POST'])
+@login_required
+def approve_package(reliefrqst_id):
+    """
+    LM approves package with full editing capability.
+    Similar to prepare_package but:
+    - LM-only access
+    - Loads existing allocations from pending package
+    - Allows editing with batch drawer (FEFO/FIFO logic)
+    - Save Draft or Approve & Dispatch
+    """
+    from app.core.rbac import is_logistics_manager
+    if not is_logistics_manager():
+        flash('Access denied. Only Logistics Managers can approve packages.', 'danger')
+        abort(403)
+    
+    relief_request = ReliefRqst.query.options(
+        joinedload(ReliefRqst.agency),
+        joinedload(ReliefRqst.eligible_event),
+        joinedload(ReliefRqst.status),
+        joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.category),
+        joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.default_uom),
+        joinedload(ReliefRqst.packages),
+        joinedload(ReliefRqst.fulfillment_lock).joinedload(ReliefRequestFulfillmentLock.fulfiller)
+    ).get_or_404(reliefrqst_id)
+    
+    # Get the pending package
+    relief_pkg = next((pkg for pkg in relief_request.packages if pkg.status_code == rr_service.PKG_STATUS_PENDING), None)
+    
+    if not relief_pkg:
+        flash('No pending package found for this relief request.', 'danger')
+        return redirect(url_for('packaging.pending_approval'))
+    
+    if relief_pkg.dispatch_dtime is not None:
+        flash('This package has already been dispatched.', 'warning')
+        return redirect(url_for('packaging.pending_approval'))
+    
+    # Check lock status
+    can_edit, blocking_user, lock = lock_service.check_lock(reliefrqst_id, current_user.user_id)
+    
+    if request.method == 'GET':
+        # Acquire lock if not already held
+        if not lock:
+            success, message, lock = lock_service.acquire_lock(
+                reliefrqst_id,
+                current_user.user_id,
+                current_user.email
+            )
+            if not success:
+                can_edit = False
+                blocking_user = message.replace("Currently being prepared by ", "")
+        
+        # Load warehouses
+        warehouses = Warehouse.query.filter_by(status_code='A').order_by(Warehouse.warehouse_name).all()
+        
+        # Load inventory availability for each item
+        item_inventory_map = {}
+        for item in relief_request.items:
+            inventories = Inventory.query.filter_by(
+                item_id=item.item_id,
+                status_code='A'
+            ).filter(
+                Inventory.usable_qty > 0
+            ).join(Warehouse).order_by(Warehouse.warehouse_name).all()
+            
+            item_inventory_map[item.item_id] = inventories
+        
+        # Load existing allocations from the pending package
+        existing_allocations = {}
+        for pkg_item in relief_pkg.items:
+            item_id = pkg_item.item_id
+            warehouse_id = pkg_item.fr_inventory_id  # fr_inventory_id IS the warehouse_id
+            
+            if item_id not in existing_allocations:
+                existing_allocations[item_id] = {}
+            
+            if warehouse_id not in existing_allocations[item_id]:
+                existing_allocations[item_id][warehouse_id] = Decimal('0')
+            
+            existing_allocations[item_id][warehouse_id] += pkg_item.item_qty
+        
+        # Load item status map
+        status_map = item_status_service.load_status_map()
+        
+        # Compute item status options
+        item_status_options = {}
+        for item in relief_request.items:
+            total_allocated = Decimal('0')
+            if item.item_id in existing_allocations:
+                for warehouse_qty in existing_allocations[item.item_id].values():
+                    total_allocated += warehouse_qty
+            
+            auto_status, allowed_codes = item_status_service.compute_allowed_statuses(
+                item.status_code,
+                total_allocated,
+                item.request_qty
+            )
+            
+            item_status_options[item.item_id] = {
+                'auto_status': auto_status,
+                'allowed_codes': allowed_codes,
+                'total_allocated': float(total_allocated)
+            }
+        
+        return render_template('packaging/approve.html',
+                             relief_request=relief_request,
+                             relief_pkg=relief_pkg,
+                             warehouses=warehouses,
+                             item_inventory_map=item_inventory_map,
+                             existing_allocations=existing_allocations,
+                             can_edit=can_edit,
+                             blocking_user=blocking_user,
+                             lock=lock,
+                             is_locked_by_me=(lock and lock.fulfiller_user_id == current_user.user_id),
+                             status_map=status_map,
+                             item_status_options=item_status_options)
+    
+    # POST: Handle actions
+    if not can_edit:
+        flash(f'This request is currently being edited by {blocking_user}', 'warning')
+        return redirect(url_for('packaging.pending_approval'))
+    
+    action = request.form.get('action')
+    
+    if action == 'save_draft':
+        return _save_draft_approval(relief_request, relief_pkg)
+    elif action == 'approve_and_dispatch':
+        return _approve_and_dispatch(relief_request, relief_pkg)
+    else:
+        flash('Invalid action', 'danger')
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=reliefrqst_id))
+
+
+def _save_draft_approval(relief_request, relief_pkg):
+    """
+    LM saves draft changes during approval workflow.
+    - Updates allocations with delta-based itembatch changes
+    - Keeps package in Pending status
+    - Retains lock for continued editing
+    - No notifications sent
+    """
+    try:
+        # Process batch allocations and update ReliefPkgItem
+        new_allocations = _process_allocations(relief_request, validate_complete=False)
+        
+        # Keep package in pending status
+        relief_pkg.status_code = rr_service.PKG_STATUS_PENDING
+        relief_pkg.update_by_id = current_user.user_name
+        relief_pkg.update_dtime = datetime.now()
+        relief_pkg.version_nbr += 1
+        
+        # Flush to persist allocations before reservation
+        db.session.flush()
+        
+        # Update inventory reservations with delta-based changes
+        old_allocations = relief_request._old_allocations if hasattr(relief_request, '_old_allocations') else {}
+        success, error_msg = reservation_service.reserve_inventory(
+            relief_request.reliefrqst_id,
+            new_allocations,
+            old_allocations
+        )
+        
+        if not success:
+            # Reservation failed - rollback and retain lock
+            db.session.rollback()
+            lock_service.acquire_lock(relief_request.reliefrqst_id, current_user.user_id, current_user.email)
+            flash(f'{error_msg}', 'warning')
+            flash('Draft not saved due to insufficient inventory. Your lock is retained so you can continue editing.', 'info')
+            return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+        
+        # Commit changes
+        db.session.commit()
+        flash(f'Draft saved for relief request #{relief_request.reliefrqst_id}. Package remains pending approval.', 'success')
+        
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+        
+    except ValueError as e:
+        db.session.rollback()
+        lock_service.acquire_lock(relief_request.reliefrqst_id, current_user.user_id, current_user.email)
+        flash(str(e), 'danger')
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+    except OptimisticLockError as e:
+        db.session.rollback()
+        flash(f'Concurrency conflict: {str(e)} Please refresh the page and try again.', 'danger')
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+    except Exception as e:
+        db.session.rollback()
+        lock_service.acquire_lock(relief_request.reliefrqst_id, current_user.user_id, current_user.email)
+        flash(f'Error saving draft: {str(e)}', 'danger')
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+
+
+def _approve_and_dispatch(relief_request, relief_pkg):
+    """
+    LM approves package and dispatches to Inventory Clerk.
+    - Validates allocations
+    - Updates reliefrqst_item.issue_qty
+    - Commits inventory (reserved -> actual deduction)
+    - Transitions to Dispatched status
+    - Notifies Inventory Clerk
+    - Releases lock
+    """
+    try:
+        # Process and validate allocations (can be partial)
+        new_allocations = _process_allocations(relief_request, validate_complete=False)
+        
+        # Verify at least one item has allocated quantity
+        has_allocated_items = any(alloc['allocated_qty'] > 0 for alloc in new_allocations)
+        if not has_allocated_items:
+            raise ValueError('Cannot dispatch package: no items have been allocated')
+        
+        # Update issue_qty for each item based on total allocated quantity
+        for item in relief_request.items:
+            total_allocated = Decimal('0')
+            for alloc in new_allocations:
+                if alloc['item_id'] == item.item_id:
+                    total_allocated += alloc['allocated_qty']
+            
+            item.issue_qty = total_allocated
+            item.version_nbr += 1
+        
+        # LM approval: set verify_by_id and verify_dtime
+        relief_pkg.verify_by_id = current_user.user_name
+        relief_pkg.verify_dtime = datetime.now()
+        
+        # Mark package as dispatched
+        relief_pkg.status_code = rr_service.PKG_STATUS_DISPATCHED
+        relief_pkg.dispatch_dtime = datetime.now()
+        relief_pkg.update_by_id = current_user.user_name
+        relief_pkg.update_dtime = datetime.now()
+        relief_pkg.version_nbr += 1
+        
+        # Flush to persist allocations
+        db.session.flush()
+        
+        # Commit inventory: convert reservations to actual deductions
+        success, error_msg = reservation_service.commit_inventory(relief_request.reliefrqst_id)
+        if not success:
+            raise ValueError(f'Inventory commit failed: {error_msg}')
+        
+        # Update relief request status
+        relief_request.action_by_id = current_user.user_name
+        relief_request.action_dtime = datetime.now()
+        relief_request.status_code = rr_service.STATUS_PART_FILLED
+        relief_request.version_nbr += 1
+        
+        # Notify Inventory Clerk and agency users
+        try:
+            from app.services.notification_service import NotificationService
+            
+            # Notify logistics officers (inventory clerks)
+            lo_users = NotificationService.get_active_users_by_role_codes(['LOGISTICS_OFFICER', 'INVENTORY_CLERK'])
+            
+            # Notify agency users
+            agency_users = []
+            if relief_request.agency_id:
+                agency_users = NotificationService.get_agency_active_users(relief_request.agency_id)
+            
+            all_recipients = lo_users + agency_users
+            approver_name = f"{current_user.first_name} {current_user.last_name}" if current_user.first_name else current_user.email.split('@')[0]
+            
+            NotificationService.create_package_approved_notification(
+                relief_pkg=relief_pkg,
+                recipient_users=all_recipients,
+                approver_name=approver_name
+            )
+        except Exception as e:
+            # Don't fail dispatch if notification fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Failed to send approval notification: {str(e)}')
+        
+        db.session.commit()
+        
+        # Release lock
+        lock_service.release_lock(relief_request.reliefrqst_id, current_user.user_id, force=True)
+        
+        flash(f'Relief request #{relief_request.reliefrqst_id} approved and dispatched to inventory clerk', 'success')
+        return redirect(url_for('packaging.pending_approval'))
+        
+    except ValueError as e:
+        db.session.rollback()
+        flash(str(e), 'danger')
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+    except OptimisticLockError as e:
+        db.session.rollback()
+        flash(f'Concurrency conflict: {str(e)} Please refresh the page and try again.', 'danger')
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error approving package: {str(e)}', 'danger')
+        return redirect(url_for('packaging.approve_package', reliefrqst_id=relief_request.reliefrqst_id))
+
+
 @packaging_bp.route('/create-request-on-behalf', methods=['GET', 'POST'])
 @login_required
 def create_request_on_behalf():
@@ -555,6 +849,11 @@ def _submit_for_approval(relief_request):
         return redirect(url_for('packaging.prepare_package', reliefrqst_id=relief_request.reliefrqst_id))
     
     try:
+        # Check if package already exists and is pending (BEFORE processing allocations)
+        # This prevents duplicate notifications when LO resubmits an already-pending package
+        existing_pkg = ReliefPkg.query.filter_by(reliefrqst_id=relief_request.reliefrqst_id).first()
+        was_already_pending = existing_pkg and existing_pkg.status_code == rr_service.PKG_STATUS_PENDING
+        
         # Process and validate allocations
         new_allocations = _process_allocations(relief_request, validate_complete=False)
         
@@ -583,19 +882,21 @@ def _submit_for_approval(relief_request):
             raise ValueError(f'Reservation failed: {error_msg}')
         
         # Notify all Logistics Managers about the pending approval
-        try:
-            from app.services.notification_service import NotificationService
-            lm_users = NotificationService.get_active_users_by_role_codes(['LOGISTICS_MANAGER'])
-            preparer_name = f"{current_user.first_name} {current_user.last_name}" if current_user.first_name else current_user.email.split('@')[0]
-            NotificationService.create_package_ready_for_approval_notification(
-                relief_pkg=relief_pkg,
-                recipient_users=lm_users,
-                preparer_name=preparer_name
-            )
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f'Failed to send LM approval notification: {str(e)}')
+        # Only send notifications if this is a NEW submission (not a resubmission)
+        if not was_already_pending:
+            try:
+                from app.services.notification_service import NotificationService
+                lm_users = NotificationService.get_active_users_by_role_codes(['LOGISTICS_MANAGER'])
+                preparer_name = f"{current_user.first_name} {current_user.last_name}" if current_user.first_name else current_user.email.split('@')[0]
+                NotificationService.create_package_ready_for_approval_notification(
+                    relief_pkg=relief_pkg,
+                    recipient_users=lm_users,
+                    preparer_name=preparer_name
+                )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f'Failed to send LM approval notification: {str(e)}')
         
         db.session.commit()
         
