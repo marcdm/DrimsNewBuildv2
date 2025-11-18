@@ -118,7 +118,6 @@ def create_donation():
                     item_id = request.form.get(f'item_id_{item_num}')
                     quantity_str = request.form.get(f'quantity_{item_num}')
                     uom_id = request.form.get(f'uom_id_{item_num}')
-                    status_code = request.form.get(f'status_code_{item_num}')
                     item_comments = request.form.get(f'item_comments_{item_num}', '').strip()
                     
                     if item_id:
@@ -135,15 +134,12 @@ def create_donation():
                         
                         if not uom_id:
                             errors.append(f'UOM is required for item #{item_num}')
-                        if not status_code:
-                            errors.append(f'Status is required for item #{item_num}')
                         
                         try:
                             item_data.append({
                                 'item_id': int(item_id),
                                 'quantity': quantity_value,
                                 'uom_id': int(uom_id) if uom_id else None,
-                                'status_code': status_code,
                                 'item_comments': item_comments
                             })
                         except ValueError as ve:
@@ -194,7 +190,6 @@ def create_donation():
                 donation_item.item_qty = item_info['quantity']
                 donation_item.uom_code = item_info['uom_id']
                 donation_item.location_name = 'DONATION RECEIVED'
-                donation_item.status_code = item_info['status_code']
                 donation_item.comments_text = item_info['item_comments'].upper() if item_info['item_comments'] else None
                 
                 add_audit_fields(donation_item, current_user, is_new=True)

@@ -208,15 +208,7 @@ function addItemRow() {
                         ${uoms.map(uom => `<option value="${uom.uom_code}">${uom.uom_desc}</option>`).join('')}
                     </select>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Item Status <span class="text-danger">*</span></label>
-                    <select class="form-select" name="status_code_${itemCounter}" required>
-                        <option value="">-- Select Status --</option>
-                        <option value="P">Processed</option>
-                        <option value="V">Verified</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <label class="form-label">Item Comments</label>
                     <input type="text" class="form-control" name="item_comments_${itemCounter}" 
                            placeholder="Optional comments" style="text-transform: uppercase;">
