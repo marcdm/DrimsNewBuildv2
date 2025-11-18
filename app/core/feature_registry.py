@@ -157,6 +157,17 @@ class FeatureRegistry:
         # PACKAGE FULFILLMENT (Logistics Officers & Managers)
         # Verified: packaging.py shows is_logistics_officer() OR is_logistics_manager()
         # =================================================================
+        'create_request_on_behalf': {
+            'name': 'Create Request (On Behalf of Agency)',
+            'description': 'Create relief requests on behalf of agencies',
+            'roles': ['LOGISTICS_OFFICER', 'LOGISTICS_MANAGER'],
+            'route': 'packaging.create_request_on_behalf',
+            'url': '/packaging/create-request-on-behalf',
+            'icon': 'bi-plus-circle-fill',
+            'category': 'packaging',
+            'navigation_group': 'packaging',
+            'priority': 16
+        },
         'package_preparation': {
             'name': 'Prepare Fulfillment Packages',
             'description': 'Allocate inventory and prepare relief packages',

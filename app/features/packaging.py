@@ -211,6 +211,74 @@ def review_approval(reliefrqst_id):
         return redirect(url_for('packaging.review_approval', reliefrqst_id=reliefrqst_id))
 
 
+@packaging_bp.route('/create-request-on-behalf', methods=['GET', 'POST'])
+@login_required
+def create_request_on_behalf():
+    """
+    LM/LO creates relief request on behalf of an agency.
+    Reuses existing request creation logic with agency selection.
+    """
+    from app.core.rbac import is_logistics_officer, is_logistics_manager
+    from app.db.models import Agency, Event
+    
+    if not (is_logistics_officer() or is_logistics_manager()):
+        flash('Access denied. Only Logistics Officers and Managers can create requests on behalf of agencies.', 'danger')
+        abort(403)
+    
+    if request.method == 'POST':
+        try:
+            agency_id = request.form.get('agency_id')
+            urgency_ind = request.form.get('urgency_ind', 'M')
+            eligible_event_id = request.form.get('eligible_event_id')
+            eligible_event_id = int(eligible_event_id) if eligible_event_id else None
+            rqst_notes_text = request.form.get('rqst_notes_text', '').strip()
+            
+            # Validate agency selection
+            if not agency_id:
+                flash('Please select an agency', 'danger')
+                return redirect(url_for('packaging.create_request_on_behalf'))
+            
+            agency_id = int(agency_id)
+            agency = Agency.query.get(agency_id)
+            if not agency:
+                flash('Invalid agency selected', 'danger')
+                return redirect(url_for('packaging.create_request_on_behalf'))
+            
+            # Validate urgency
+            if urgency_ind not in ['H', 'M', 'L']:
+                flash('Invalid urgency level', 'danger')
+                return redirect(url_for('packaging.create_request_on_behalf'))
+            
+            # Create draft request using existing service
+            relief_request = rr_service.create_draft_request(
+                agency_id=agency_id,
+                urgency_ind=urgency_ind,
+                eligible_event_id=eligible_event_id,
+                rqst_notes_text=rqst_notes_text,
+                user_email=current_user.email
+            )
+            
+            db.session.commit()
+            
+            flash(f'Draft relief request #{relief_request.reliefrqst_id} created successfully for {agency.agency_name}. Add items to continue.', 'success')
+            # Redirect to the standard edit_items page in requests blueprint
+            return redirect(url_for('requests.edit_items', request_id=relief_request.reliefrqst_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating request: {str(e)}', 'danger')
+            return redirect(url_for('packaging.create_request_on_behalf'))
+    
+    # GET request - show form with agency selector
+    agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
+    events = Event.query.filter_by(status_code='A').order_by(Event.start_date.desc()).all()
+    
+    return render_template('packaging/create_request_on_behalf.html',
+                         agencies=agencies,
+                         events=events,
+                         today=date.today().isoformat())
+
+
 @packaging_bp.route('/pending-fulfillment')
 @login_required
 def pending_fulfillment():
