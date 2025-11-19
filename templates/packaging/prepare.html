@@ -727,11 +727,46 @@
             
             <!-- Cancel Button -->
             <div style="margin-top: 1rem;">
-                <button type="button" class="btn btn-secondary" onclick="handleCancelPackage()" style="cursor: pointer;">
+                <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#cancelPackageModal" style="cursor: pointer;">
                     <i class="bi bi-x-circle"></i>
                     Cancel Package Preparation
                 </button>
             </div>
+            </div>
+        </div>
+        
+        <!-- Cancel Package Confirmation Modal -->
+        <div class="modal fade" id="cancelPackageModal" tabindex="-1" aria-labelledby="cancelPackageModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="cancelPackageModalLabel">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Cancel Package Preparation
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-3"><strong>Are you sure you want to cancel this package preparation?</strong></p>
+                        <p class="mb-2">This action will:</p>
+                        <ul class="mb-3">
+                            <li>Delete all draft allocations</li>
+                            <li>Release all inventory reservations</li>
+                            <li>Release the fulfillment lock</li>
+                        </ul>
+                        <p class="text-danger mb-0"><strong>This action cannot be undone.</strong></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i>
+                            No, Keep Working
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="confirmCancelPackage()">
+                            <i class="bi bi-trash"></i>
+                            Yes, Cancel Package
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1139,26 +1174,30 @@ function releaseLock() {
     }
 }
 
-function handleCancelPackage() {
-    console.log('handleCancelPackage called');
+function confirmCancelPackage() {
+    console.log('confirmCancelPackage called - User confirmed cancellation');
     try {
-        if (confirm('Cancel package preparation?\n\nThis will:\n• Delete all draft allocations\n• Release all inventory reservations\n• Release the fulfillment lock\n\nThis action cannot be undone.')) {
-            console.log('User confirmed cancellation');
-            // Create and submit a form to POST to the cancel route
-            const cancelUrl = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
-            console.log('Cancel URL:', cancelUrl);
-            
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = cancelUrl;
-            document.body.appendChild(form);
-            console.log('Form created and appended, submitting now...');
-            form.submit();
-        } else {
-            console.log('User cancelled the cancellation');
-        }
+        // Create and submit a form to POST to the cancel route
+        const cancelUrl = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
+        console.log('Cancel URL:', cancelUrl);
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = cancelUrl;
+        
+        // Add CSRF token (rendered directly from Flask)
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+        console.log('CSRF token added to form');
+        
+        document.body.appendChild(form);
+        console.log('Form created and appended, submitting now...');
+        form.submit();
     } catch (error) {
-        console.error('Error in handleCancelPackage:', error);
+        console.error('Error in confirmCancelPackage:', error);
         alert('An error occurred while trying to cancel: ' + error.message);
     }
 }
