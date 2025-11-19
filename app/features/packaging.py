@@ -704,8 +704,6 @@ def pending_fulfillment():
     elif filter_type == 'pending_approval':
         # Show only requests with packages awaiting LM approval
         filtered_requests = [r for r in all_requests if has_pending_approval(r)]
-    elif filter_type == 'ready':
-        filtered_requests = [r for r in all_requests if r.status_code == rr_service.STATUS_PART_FILLED]
     else:
         filtered_requests = all_requests
     
@@ -715,8 +713,7 @@ def pending_fulfillment():
                          and not r.fulfillment_lock 
                          and not has_pending_approval(r)]),
         'locked': len([r for r in all_requests if r.fulfillment_lock]),
-        'pending_approval': len([r for r in all_requests if has_pending_approval(r)]),
-        'part_filled': len([r for r in all_requests if r.status_code == rr_service.STATUS_PART_FILLED])
+        'pending_approval': len([r for r in all_requests if has_pending_approval(r)])
     }
     
     filtered_counts = {
@@ -725,10 +722,7 @@ def pending_fulfillment():
                          and not r.fulfillment_lock 
                          and not has_pending_approval(r)]),
         'locked': len([r for r in filtered_requests if r.fulfillment_lock]),
-        'pending_approval': len([r for r in filtered_requests if has_pending_approval(r)]),
-        'part_filled': len([r for r in filtered_requests 
-                           if r.status_code == rr_service.STATUS_PART_FILLED 
-                           and not r.fulfillment_lock])
+        'pending_approval': len([r for r in filtered_requests if has_pending_approval(r)])
     }
     
     return render_template('packaging/pending_fulfillment.html',

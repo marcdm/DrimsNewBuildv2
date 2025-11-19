@@ -46,14 +46,6 @@
         }
     ] %}
     {% endif %}
-    {% set summary_metrics = summary_metrics + [
-        {
-            'icon': 'check-circle',
-            'label': 'Ready for Dispatch',
-            'value': counts.get('part_filled', 0),
-            'variant': 'success'
-        }
-    ] %}
     {{ render_summary_cards(summary_metrics) }}
 
     <!-- Filter Tabs -->
@@ -84,14 +76,6 @@
             {% endif %}
         </a>
         {% endif %}
-        <a href="{{ url_for('packaging.pending_fulfillment', filter='ready') }}" 
-           class="filter-tab {% if current_filter == 'ready' %}active{% endif %}"
-           aria-current="{% if current_filter == 'ready' %}page{% endif %}">
-            Ready for Dispatch
-            {% if global_counts.get('part_filled', 0) > 0 %}
-            <span class="filter-tab-count" aria-label="{{ global_counts.get('part_filled', 0) }} ready">{{ global_counts.get('part_filled', 0) }}</span>
-            {% endif %}
-        </a>
         <a href="{{ url_for('packaging.pending_fulfillment', filter='all') }}" 
            class="filter-tab {% if current_filter == 'all' %}active{% endif %}"
            aria-current="{% if current_filter == 'all' %}page{% endif %}">
