@@ -1140,13 +1140,26 @@ function releaseLock() {
 }
 
 function handleCancelPackage() {
-    if (confirm('Cancel package preparation?\n\nThis will:\n• Delete all draft allocations\n• Release all inventory reservations\n• Release the fulfillment lock\n\nThis action cannot be undone.')) {
-        // Create and submit a form to POST to the cancel route
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
-        document.body.appendChild(form);
-        form.submit();
+    console.log('handleCancelPackage called');
+    try {
+        if (confirm('Cancel package preparation?\n\nThis will:\n• Delete all draft allocations\n• Release all inventory reservations\n• Release the fulfillment lock\n\nThis action cannot be undone.')) {
+            console.log('User confirmed cancellation');
+            // Create and submit a form to POST to the cancel route
+            const cancelUrl = '{{ url_for("packaging.cancel_preparation", reliefrqst_id=relief_request.reliefrqst_id) }}';
+            console.log('Cancel URL:', cancelUrl);
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = cancelUrl;
+            document.body.appendChild(form);
+            console.log('Form created and appended, submitting now...');
+            form.submit();
+        } else {
+            console.log('User cancelled the cancellation');
+        }
+    } catch (error) {
+        console.error('Error in handleCancelPackage:', error);
+        alert('An error occurred while trying to cancel: ' + error.message);
     }
 }
 </script>
