@@ -1692,8 +1692,7 @@ def dispatch_details(reliefpkg_id):
         joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.eligible_event),
         joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item),
         joinedload(ReliefPkg.items).joinedload(ReliefPkgItem.item),
-        joinedload(ReliefPkg.items).joinedload(ReliefPkgItem.batch),
-        joinedload(ReliefPkg.items).joinedload(ReliefPkgItem.warehouse)
+        joinedload(ReliefPkg.items).joinedload(ReliefPkgItem.batch)
     ).get_or_404(reliefpkg_id)
     
     # Verify package is dispatched
