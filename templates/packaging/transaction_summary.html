@@ -374,6 +374,7 @@
                 <th style="text-align: center; width: 120px;">Requested Qty</th>
                 <th style="text-align: center; width: 120px;">Issued Qty</th>
                 <th style="width: 100px;">UOM</th>
+                <th style="width: 150px;">Status</th>
             </tr>
         </thead>
         <tbody>
@@ -387,6 +388,7 @@
                     
                     <!-- Batch Details -->
                     <div class="batch-details">
+                        {% if item_data.batches %}
                         {% for batch in item_data.batches %}
                         <div class="batch-item">
                             <strong>{{ batch.warehouse_name }}</strong> - 
@@ -399,11 +401,35 @@
                             {% endif %}
                         </div>
                         {% endfor %}
+                        {% else %}
+                        <div class="batch-item" style="color: #dc3545; font-style: italic;">
+                            No allocation made
+                        </div>
+                        {% endif %}
                     </div>
                 </td>
                 <td style="text-align: center; font-weight: 600;">{{ item_data.requested_qty }}</td>
-                <td style="text-align: center; font-weight: 600; color: #009639;">{{ item_data.issued_qty }}</td>
+                <td style="text-align: center; font-weight: 600; {% if item_data.issued_qty > 0 %}color: #009639;{% else %}color: #dc3545;{% endif %}">{{ item_data.issued_qty }}</td>
                 <td>{{ item_data.item.default_uom.uom_desc if item_data.item and item_data.item.default_uom else 'N/A' }}</td>
+                <td>
+                    {% if item_data.status_code in ['U', 'D', 'W'] %}
+                    <span style="color: #dc3545; font-weight: 600;">{{ item_data.status_desc or item_data.status_code }}</span>
+                    {% if item_data.status_reason %}
+                    <div style="font-size: 0.8125rem; color: #6c757d; margin-top: 0.25rem;">{{ item_data.status_reason }}</div>
+                    {% endif %}
+                    {% elif item_data.status_code == 'F' %}
+                    <span style="color: #009639; font-weight: 600;">{{ item_data.status_desc or 'Filled' }}</span>
+                    {% elif item_data.status_code == 'P' %}
+                    <span style="color: #ffc107; font-weight: 600;">{{ item_data.status_desc or 'Partly Filled' }}</span>
+                    {% elif item_data.status_code == 'L' %}
+                    <span style="color: #0dcaf0; font-weight: 600;">{{ item_data.status_desc or 'Allowed Limit' }}</span>
+                    {% if item_data.status_reason %}
+                    <div style="font-size: 0.8125rem; color: #6c757d; margin-top: 0.25rem;">{{ item_data.status_reason }}</div>
+                    {% endif %}
+                    {% else %}
+                    <span style="font-weight: 600;">{{ item_data.status_desc or item_data.status_code }}</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

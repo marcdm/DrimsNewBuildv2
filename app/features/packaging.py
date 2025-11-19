@@ -424,10 +424,19 @@ def _approve_and_dispatch(relief_request, relief_pkg):
         # Process and validate allocations (can be partial)
         new_allocations = _process_allocations(relief_request, validate_complete=False)
         
-        # Verify at least one item has allocated quantity
+        # Verify at least one item has allocated quantity OR all unallocated items have valid unavailability statuses
         has_allocated_items = any(alloc['allocated_qty'] > 0 for alloc in new_allocations)
+        
         if not has_allocated_items:
-            raise ValueError('Cannot dispatch package: no items have been allocated')
+            # Check if all items have valid unavailability statuses (U, D, W)
+            unavailability_statuses = {'U', 'D', 'W'}
+            all_items_unavailable = all(
+                item.status_code in unavailability_statuses 
+                for item in relief_request.items
+            )
+            
+            if not all_items_unavailable:
+                raise ValueError('Cannot dispatch package: no items have been allocated. Items without allocation must have status Unavailable (U), Denied (D), or Awaiting Availability (W).')
         
         # Update issue_qty for each item based on total allocated quantity
         for item in relief_request.items:
@@ -529,6 +538,7 @@ def transaction_summary(reliefpkg_id):
         joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.agency),
         joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.eligible_event),
         joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item).joinedload(Item.default_uom),
+        joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.items).joinedload(ReliefRqstItem.item_status),
         joinedload(ReliefPkg.items)
     ).get_or_404(reliefpkg_id)
     
@@ -563,7 +573,9 @@ def transaction_summary(reliefpkg_id):
             'requested_qty': req_item.request_qty,
             'issued_qty': total_issued,
             'batches': batches_info,
-            'status_code': req_item.status_code
+            'status_code': req_item.status_code,
+            'status_desc': req_item.item_status.status_desc if req_item.item_status else None,
+            'status_reason': req_item.status_reason_desc
         })
     
     # Calculate summary totals
