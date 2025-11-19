@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import List, Dict, Tuple, Optional
 from sqlalchemy.exc import SQLAlchemyError
 from app.db import db
-from app.db.models import Inventory, ReliefPkgItem
+from app.db.models import Inventory, ReliefPkgItem, ItemBatch
 
 
 def get_current_reservations(reliefrqst_id: int) -> Dict[Tuple[int, int], Decimal]:
@@ -188,11 +188,12 @@ def release_all_reservations(reliefrqst_id: int) -> Tuple[bool, str]:
 
 def commit_inventory(reliefrqst_id: int) -> Tuple[bool, str]:
     """
-    Commit inventory allocations on package dispatch.
+    Commit inventory allocations on package dispatch at BATCH LEVEL.
     
     Converts reservations to actual deductions:
-    - Decreases usable_qty by allocated amounts
-    - Decreases reserved_qty by allocated amounts
+    - Decreases batch.usable_qty by allocated amounts for each batch
+    - Decreases batch.reserved_qty by allocated amounts for each batch
+    - Updates warehouse-level inventory.usable_qty and inventory.reserved_qty
     
     Called when Logistics Manager sends package for dispatch.
     
@@ -201,31 +202,61 @@ def commit_inventory(reliefrqst_id: int) -> Tuple[bool, str]:
     
     Returns:
         (success, error_message)
-    
-    Note: inventory_id IS the warehouse_id (composite PK pattern)
     """
     try:
-        current_reservations = get_current_reservations(reliefrqst_id)
+        # Get all package items with their batch-level allocations
+        from app.db.models import ReliefPkg
+        pkg = ReliefPkg.query.filter_by(reliefrqst_id=reliefrqst_id).first()
         
-        for (item_id, inventory_id), allocated_qty in current_reservations.items():
-            if allocated_qty > 0:
-                # Use inventory_id (which IS the warehouse_id) in composite PK
-                inventory = Inventory.query.filter_by(
-                    item_id=item_id,
-                    inventory_id=inventory_id,  # Use inventory_id, not warehouse_id
-                    status_code='A'
+        if not pkg:
+            return False, 'No package found for this relief request'
+        
+        pkg_items = ReliefPkgItem.query.filter_by(reliefpkg_id=pkg.reliefpkg_id).all()
+        
+        # Track warehouse-level changes for updating Inventory table
+        warehouse_changes = {}  # {(item_id, inventory_id): total_allocated_qty}
+        
+        # Process each batch allocation
+        for pkg_item in pkg_items:
+            if pkg_item.item_qty and pkg_item.item_qty > 0:
+                # Deduct from the specific batch
+                batch = ItemBatch.query.filter_by(
+                    batch_id=pkg_item.batch_id,
+                    inventory_id=pkg_item.fr_inventory_id,
+                    item_id=pkg_item.item_id
                 ).with_for_update().first()
                 
-                if not inventory:
-                    return False, f'No active inventory found for item {item_id} at warehouse {inventory_id}'
+                if not batch:
+                    return False, f'Batch {pkg_item.batch_id} not found for item {pkg_item.item_id}'
                 
-                # Validate sufficient usable quantity
-                if inventory.usable_qty < allocated_qty:
-                    return False, f'Insufficient inventory at warehouse {inventory.warehouse.warehouse_name}: need {allocated_qty}, have {inventory.usable_qty}'
+                # Validate sufficient batch quantity
+                if batch.usable_qty < pkg_item.item_qty:
+                    from app.db.models import Warehouse
+                    warehouse = Warehouse.query.get(pkg_item.fr_inventory_id)
+                    warehouse_name = warehouse.warehouse_name if warehouse else f'ID {pkg_item.fr_inventory_id}'
+                    return False, f'Insufficient inventory at warehouse {warehouse_name}: need {pkg_item.item_qty}, have {batch.usable_qty}'
                 
-                # Commit allocation: decrease both usable and reserved
-                inventory.usable_qty -= allocated_qty
-                inventory.reserved_qty = max(Decimal('0'), inventory.reserved_qty - allocated_qty)
+                # Commit batch allocation
+                batch.usable_qty -= pkg_item.item_qty
+                batch.reserved_qty = max(Decimal('0'), batch.reserved_qty - pkg_item.item_qty)
+                
+                # Track warehouse-level changes
+                key = (pkg_item.item_id, pkg_item.fr_inventory_id)
+                if key not in warehouse_changes:
+                    warehouse_changes[key] = Decimal('0')
+                warehouse_changes[key] += pkg_item.item_qty
+        
+        # Update warehouse-level inventory
+        for (item_id, inventory_id), total_qty in warehouse_changes.items():
+            inventory = Inventory.query.filter_by(
+                item_id=item_id,
+                inventory_id=inventory_id,
+                status_code='A'
+            ).with_for_update().first()
+            
+            if inventory:
+                inventory.usable_qty -= total_qty
+                inventory.reserved_qty = max(Decimal('0'), inventory.reserved_qty - total_qty)
         
         return True, ''
         
