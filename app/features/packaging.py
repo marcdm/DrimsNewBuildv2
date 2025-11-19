@@ -8,6 +8,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from sqlalchemy import and_
 from sqlalchemy.orm import joinedload
+import uuid
 
 from app.db import db
 from app.db.models import (
@@ -1025,9 +1026,13 @@ def _process_allocations(relief_request, validate_complete=False):
     # Get or create ReliefPkg for this relief request
     relief_pkg = ReliefPkg.query.filter_by(reliefrqst_id=relief_request.reliefrqst_id).first()
     if not relief_pkg:
+        # Generate tracking number (7-char uppercase from UUID, matching database default)
+        tracking_no = str(uuid.uuid4()).replace('-', '').upper()[:7]
+        
         # Create a new relief package for tracking allocations
         relief_pkg = ReliefPkg(
             agency_id=relief_request.agency_id,
+            tracking_no=tracking_no,
             reliefrqst_id=relief_request.reliefrqst_id,
             to_inventory_id=1,  # Placeholder, will be updated on dispatch
             start_date=date.today(),
