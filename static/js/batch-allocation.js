@@ -252,25 +252,197 @@ const BatchAllocation = (function() {
     }
     
     /**
-     * Render the batch list
+     * Render the batch list grouped by warehouse
      * @param {Array} batches - Array of batch objects
      */
     function renderBatches(batches) {
-        console.log(`Rendering ${batches.length} batches`);
+        console.log(`Rendering ${batches.length} batches grouped by warehouse`);
         elements.batchList.innerHTML = '';
         
         if (batches.length === 0) {
             showEmptyState();
+            hideJumpControl();
             return;
         }
         
-        batches.forEach(batch => {
-            console.log(`  - Creating element for batch ${batch.batch_id} (${batch.batch_no})`);
-            const batchElement = createBatchElement(batch);
-            elements.batchList.appendChild(batchElement);
+        // Group batches by warehouse
+        const warehouseGroups = groupBatchesByWarehouse(batches);
+        
+        // Render each warehouse section
+        Object.keys(warehouseGroups).forEach(warehouseId => {
+            const warehouseData = warehouseGroups[warehouseId];
+            const warehouseSection = createWarehouseSection(warehouseId, warehouseData);
+            elements.batchList.appendChild(warehouseSection);
         });
         
+        // Populate jump-to-warehouse dropdown
+        populateJumpControl(warehouseGroups);
+        showJumpControl();
+        
         hideEmptyState();
+    }
+    
+    /**
+     * Group batches by warehouse
+     * @param {Array} batches - Array of batch objects
+     * @returns {Object} Warehouses grouped by warehouse_id
+     */
+    function groupBatchesByWarehouse(batches) {
+        const groups = {};
+        
+        batches.forEach(batch => {
+            const warehouseId = batch.warehouse_id;
+            if (!groups[warehouseId]) {
+                groups[warehouseId] = {
+                    warehouse_id: warehouseId,
+                    warehouse_name: batch.warehouse_name,
+                    batches: [],
+                    total_available: 0
+                };
+            }
+            groups[warehouseId].batches.push(batch);
+            groups[warehouseId].total_available += batch.available_qty;
+        });
+        
+        return groups;
+    }
+    
+    /**
+     * Create a warehouse section element
+     * @param {string} warehouseId - Warehouse ID
+     * @param {Object} warehouseData - Warehouse data with batches
+     * @returns {HTMLElement} Warehouse section element
+     */
+    function createWarehouseSection(warehouseId, warehouseData) {
+        const template = document.getElementById('warehouseSectionTemplate').content.cloneNode(true);
+        const container = template.querySelector('.batch-warehouse-section');
+        
+        // Set warehouse ID
+        container.dataset.warehouseId = warehouseId;
+        container.id = `warehouse-section-${warehouseId}`;
+        
+        // Populate warehouse header
+        container.querySelector('.warehouse-name-text').textContent = warehouseData.warehouse_name;
+        container.querySelector('.warehouse-batch-count').textContent = `${warehouseData.batches.length} batch${warehouseData.batches.length !== 1 ? 'es' : ''}`;
+        container.querySelector('.warehouse-total-qty').textContent = `${formatNumber(warehouseData.total_available)} available`;
+        
+        // Add batches to warehouse body
+        const warehouseBody = container.querySelector('[data-warehouse-body]');
+        warehouseData.batches.forEach(batch => {
+            const batchElement = createBatchElement(batch);
+            warehouseBody.appendChild(batchElement);
+        });
+        
+        // Add collapse/expand functionality
+        const collapseBtn = container.querySelector('.batch-warehouse-collapse-btn');
+        const warehouseHeader = container.querySelector('.batch-warehouse-header');
+        
+        const toggleCollapse = () => {
+            const isExpanded = collapseBtn.getAttribute('aria-expanded') === 'true';
+            collapseBtn.setAttribute('aria-expanded', !isExpanded);
+            warehouseBody.classList.toggle('collapsed');
+        };
+        
+        collapseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleCollapse();
+        });
+        
+        warehouseHeader.addEventListener('click', () => {
+            toggleCollapse();
+        });
+        
+        // Update warehouse allocated summary when allocations change
+        container.dataset.updateAllocationSummary = function() {
+            updateWarehouseAllocationSummary(container, warehouseData);
+        };
+        
+        // Initial allocation summary
+        updateWarehouseAllocationSummary(container, warehouseData);
+        
+        return container;
+    }
+    
+    /**
+     * Update warehouse allocation summary
+     * @param {HTMLElement} container - Warehouse section container
+     * @param {Object} warehouseData - Warehouse data
+     */
+    function updateWarehouseAllocationSummary(container, warehouseData) {
+        let totalAllocated = 0;
+        warehouseData.batches.forEach(batch => {
+            if (currentAllocations[batch.batch_id]) {
+                totalAllocated += currentAllocations[batch.batch_id];
+            }
+        });
+        
+        const valueElement = container.querySelector('.warehouse-allocated-value');
+        valueElement.textContent = formatNumber(totalAllocated);
+    }
+    
+    /**
+     * Populate jump-to-warehouse dropdown
+     * @param {Object} warehouseGroups - Grouped warehouses
+     */
+    function populateJumpControl(warehouseGroups) {
+        const select = document.getElementById('warehouseJumpSelect');
+        if (!select) return;
+        
+        // Clear existing options except first (placeholder)
+        select.innerHTML = '<option value="">Select warehouse...</option>';
+        
+        // Add warehouse options
+        Object.keys(warehouseGroups).forEach(warehouseId => {
+            const warehouse = warehouseGroups[warehouseId];
+            const option = document.createElement('option');
+            option.value = warehouseId;
+            option.textContent = warehouse.warehouse_name;
+            select.appendChild(option);
+        });
+        
+        // Add change event listener
+        select.addEventListener('change', function() {
+            if (this.value) {
+                jumpToWarehouse(this.value);
+            }
+        });
+    }
+    
+    /**
+     * Jump to a specific warehouse section
+     * @param {string} warehouseId - Warehouse ID
+     */
+    function jumpToWarehouse(warehouseId) {
+        const section = document.getElementById(`warehouse-section-${warehouseId}`);
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Flash highlight
+            section.style.backgroundColor = '#e8f5e9';
+            setTimeout(() => {
+                section.style.backgroundColor = '';
+            }, 1000);
+        }
+    }
+    
+    /**
+     * Show jump-to-warehouse control
+     */
+    function showJumpControl() {
+        const control = document.getElementById('warehouseJumpControl');
+        if (control) {
+            control.style.display = 'block';
+        }
+    }
+    
+    /**
+     * Hide jump-to-warehouse control
+     */
+    function hideJumpControl() {
+        const control = document.getElementById('warehouseJumpControl');
+        if (control) {
+            control.style.display = 'none';
+        }
     }
     
     /**
@@ -657,6 +829,35 @@ const BatchAllocation = (function() {
             elements.remainingQty.classList.remove('highlight');
             elements.remainingQty.classList.add('warning');
         }
+        
+        // Update warehouse allocation summaries
+        const warehouseSections = elements.batchList.querySelectorAll('.batch-warehouse-section');
+        warehouseSections.forEach(section => {
+            const updateFunction = section.dataset.updateAllocationSummary;
+            if (updateFunction && typeof window[updateFunction] === 'function') {
+                window[updateFunction]();
+            } else if (updateFunction) {
+                // Call the stored function directly
+                eval(updateFunction);
+            }
+            
+            // Manual update as fallback
+            const warehouseId = section.dataset.warehouseId;
+            const batches = Array.from(section.querySelectorAll('.batch-item'));
+            let warehouseAllocated = 0;
+            
+            batches.forEach(batchEl => {
+                const batchId = parseInt(batchEl.dataset.batchId);
+                if (currentAllocations[batchId]) {
+                    warehouseAllocated += currentAllocations[batchId];
+                }
+            });
+            
+            const valueElement = section.querySelector('.warehouse-allocated-value');
+            if (valueElement) {
+                valueElement.textContent = formatNumber(warehouseAllocated);
+            }
+        });
     }
     
     /**

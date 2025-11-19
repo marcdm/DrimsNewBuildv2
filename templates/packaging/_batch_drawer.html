@@ -40,11 +40,22 @@
         </div>
 
 
-        {# Batch List #}
+        {# Jump to Warehouse Control #}
+        <div class="batch-warehouse-jump-control" id="warehouseJumpControl" style="display: none;">
+            <label for="warehouseJumpSelect" class="batch-warehouse-jump-label">
+                <i class="bi bi-buildings"></i>
+                Jump to Warehouse:
+            </label>
+            <select id="warehouseJumpSelect" class="batch-warehouse-jump-select">
+                <option value="">Select warehouse...</option>
+            </select>
+        </div>
+
+        {# Batch List by Warehouse #}
         <div id="batchListContainer">
-            <h3 class="batch-list-header">Available Batches</h3>
+            <h3 class="batch-list-header">Available Batches by Warehouse</h3>
             <div class="batch-list" id="batchList">
-                {# Batches will be loaded here dynamically #}
+                {# Warehouses and their batches will be loaded here dynamically #}
             </div>
         </div>
 
@@ -73,6 +84,37 @@
     </div>
 </div>
 
+{# Warehouse Section Template (hidden, cloned by JavaScript) #}
+<template id="warehouseSectionTemplate">
+    <div class="batch-warehouse-section" data-warehouse-id="">
+        <div class="batch-warehouse-header">
+            <div class="batch-warehouse-header-main">
+                <button type="button" class="batch-warehouse-collapse-btn" aria-expanded="true">
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+                <div class="batch-warehouse-info">
+                    <h4 class="batch-warehouse-name">
+                        <i class="bi bi-building"></i>
+                        <span class="warehouse-name-text"></span>
+                    </h4>
+                    <p class="batch-warehouse-summary">
+                        <span class="warehouse-batch-count">0 batches</span>
+                        <span class="warehouse-separator">•</span>
+                        <span class="warehouse-total-qty">0 available</span>
+                    </p>
+                </div>
+            </div>
+            <div class="batch-warehouse-allocation-summary">
+                <span class="warehouse-allocated-label">Allocated:</span>
+                <span class="warehouse-allocated-value">0</span>
+            </div>
+        </div>
+        <div class="batch-warehouse-body" data-warehouse-body>
+            {# Batches for this warehouse will be added here #}
+        </div>
+    </div>
+</template>
+
 {# Batch Item Template (hidden, cloned by JavaScript) #}
 <template id="batchItemTemplate">
     <div class="batch-item" data-batch-id="">
@@ -81,10 +123,6 @@
                 <div class="batch-item-number">
                     <i class="bi bi-box-seam"></i>
                     <span class="batch-number"></span>
-                </div>
-                <div class="batch-item-warehouse">
-                    <i class="bi bi-building"></i>
-                    <span class="batch-warehouse-name"></span>
                 </div>
             </div>
             <div class="batch-item-status-container">

@@ -446,6 +446,169 @@
     to { transform: rotate(360deg); }
 }
 
+/* Jump to Warehouse Control */
+.batch-warehouse-jump-control {
+    margin-bottom: var(--spacing-5, 2rem);
+    padding: var(--spacing-4, 1.5rem);
+    background: var(--color-bg-subtle, #f9fafb);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--border-radius-lg, 0.5rem);
+}
+
+.batch-warehouse-jump-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2, 0.5rem);
+    font-size: var(--font-size-sm, 0.875rem);
+    font-weight: var(--font-weight-medium, 500);
+    color: var(--color-text-secondary, #6b7280);
+    margin-bottom: var(--spacing-2, 0.5rem);
+}
+
+.batch-warehouse-jump-select {
+    width: 100%;
+    padding: var(--spacing-3, 1rem);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--border-radius-md, 0.375rem);
+    font-size: var(--font-size-base, 1rem);
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.batch-warehouse-jump-select:focus {
+    outline: none;
+    border-color: var(--color-primary, #009639);
+    box-shadow: 0 0 0 3px rgba(0, 150, 57, 0.1);
+}
+
+/* Warehouse Sections */
+.batch-warehouse-section {
+    margin-bottom: var(--spacing-4, 1.5rem);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--border-radius-lg, 0.5rem);
+    background: white;
+    overflow: hidden;
+}
+
+.batch-warehouse-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Warehouse Header */
+.batch-warehouse-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-4, 1.5rem);
+    background: var(--color-bg-subtle, #f9fafb);
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.batch-warehouse-header:hover {
+    background: var(--color-hover, #f3f4f6);
+}
+
+.batch-warehouse-header-main {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3, 1rem);
+    flex: 1;
+}
+
+.batch-warehouse-collapse-btn {
+    background: none;
+    border: none;
+    padding: var(--spacing-2, 0.5rem);
+    cursor: pointer;
+    color: var(--color-text-secondary, #6b7280);
+    transition: transform 0.3s ease, color 0.2s ease;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.batch-warehouse-collapse-btn:hover {
+    color: var(--color-text-primary, #1f2937);
+}
+
+.batch-warehouse-collapse-btn[aria-expanded="false"] {
+    transform: rotate(-90deg);
+}
+
+.batch-warehouse-info {
+    flex: 1;
+}
+
+.batch-warehouse-name {
+    font-size: var(--font-size-lg, 1.125rem);
+    font-weight: var(--font-weight-semibold, 600);
+    color: var(--color-text-primary, #1f2937);
+    margin: 0 0 var(--spacing-1, 0.25rem) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2, 0.5rem);
+}
+
+.batch-warehouse-name i {
+    color: var(--color-primary, #009639);
+}
+
+.batch-warehouse-summary {
+    font-size: var(--font-size-sm, 0.875rem);
+    color: var(--color-text-secondary, #6b7280);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2, 0.5rem);
+}
+
+.warehouse-separator {
+    color: var(--color-border, #e5e7eb);
+}
+
+.batch-warehouse-allocation-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-1, 0.25rem);
+}
+
+.warehouse-allocated-label {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--color-text-secondary, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.warehouse-allocated-value {
+    font-size: var(--font-size-lg, 1.125rem);
+    font-weight: var(--font-weight-semibold, 600);
+    color: var(--color-primary, #009639);
+}
+
+/* Warehouse Body (Collapsible) */
+.batch-warehouse-body {
+    padding: var(--spacing-4, 1.5rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3, 1rem);
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    overflow: hidden;
+}
+
+.batch-warehouse-body.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Warehouse Section - Scrolling */
+.batch-warehouse-section {
+    scroll-margin-top: var(--spacing-5, 2rem);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .batch-drawer {

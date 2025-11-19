@@ -1,0 +1,137 @@
+Implement shared batch allocation side-drawer logic for both LO (Prepare Relief Package) and LM (Approve Relief Package) roles. Do NOT change any database schema – reuse existing tables and FEFO/FIFO rules.
+
+1. Side drawer per item (LO & LM)
+
+For every item row, Select Batches / View/Edit Batches must:
+
+Open a right-side drawer, keeping the main page visible.
+
+Load data only for that item.
+
+When reopening the drawer for the same item:
+
+Show the current allocations already made (not reset to zero).
+
+Rebuild the warehouse/batch list from current inventory, but prefill allocation inputs with last saved / in-session values.
+
+2. Warehouses shown
+
+List only warehouses where, for that item:
+
+total_usable_qty - total_reserved_qty > 0.
+
+Group batches by warehouse with a clear header: “Warehouse: [Name]”.
+
+3. Batches per warehouse (FEFO/FIFO)
+
+For each warehouse, show only batches where itembatch.usable_qty > 0 AND usable_qty - reserved_qty > 0.
+
+Sorting per warehouse:
+
+If can_expire_flag = TRUE: sort by earliest expiry_date, then oldest batch_date.
+
+If can_expire_flag = FALSE: sort by oldest batch_date (FIFO).
+
+While building each warehouse’s list:
+
+Keep a running sum of usable_qty; once that warehouse alone can fully cover the item’s remaining requested qty, stop adding more batches for that warehouse.
+
+Do not show expired / unusable batches.
+
+4. Drawer usability
+
+Compact layout:
+
+Collapsible warehouse sections (header visible, content hide/show).
+
+Minimal vertical padding; clear columns: Warehouse, Batch No, Expiry, Batch Date, Usable, Allocated input.
+
+Provide a jump-to-warehouse control (dropdown/list at top). Selecting a warehouse scrolls/focuses that section.
+
+If content exceeds height, enable smooth vertical scrolling; warehouse headers must remain easy to see/recognize.
+
+5. Allocation rules inside drawer
+
+Per-batch input:
+
+Allocated qty ≥ 0 and ≤ usable_qty - reserved_qty.
+
+If user exceeds this, show inline error and prevent save.
+
+Per-item total:
+
+Sum of allocated qty across all warehouses/batches must not exceed the item’s remaining requested qty.
+
+If exceeded, block the change and show error: e.g. “Allocated exceeds remaining requested quantity.”
+
+Cross-warehouse:
+
+User may allocate from any warehouse shown, regardless of date ordering between warehouses. FEFO/FIFO applies inside each warehouse only.
+
+Live totals:
+
+As the user types, update in real time:
+
+Allocated Total for the item.
+
+Remaining to Allocate = Requested – Allocated.
+
+6. Closing drawer & updating main grid
+
+On successful Save/Done:
+
+Persist allocation changes.
+
+Close drawer.
+
+Update main grid row for that item:
+
+Allocated Qty = total allocated across all warehouses/batches.
+
+Remaining Qty = Requested – Allocated.
+
+Status auto-updates using existing rules:
+
+Filled if Allocated == Requested.
+
+Partly Filled or Allowed Limit if 0 < Allocated < Requested.
+
+Unallocated/Unavailable/etc. if Allocated == 0.
+
+On Cancel/Back:
+
+Do not commit any changes; main grid remains unchanged.
+
+7. Dynamic inventory updates (itembatch)
+
+As the user changes allocations in the drawer, update the corresponding itembatch records delta-based:
+
+Adjust reserved_qty up/down by the change in allocated quantity.
+
+Ensure at all times:
+
+usable_qty - reserved_qty >= 0.
+
+If a change would cause negative stock (e.g., concurrent updates elsewhere):
+
+Reject that change and inform the user that the batch no longer has sufficient usable stock.
+
+When finalizing via Approve to Dispatch / Approve Package (for LM) or the equivalent confirm button:
+
+In a single atomic transaction (all-or-nothing):
+
+Update itembatch reserved/usable quantities and status (subject to version_nbr optimistic locking).
+
+Update reliefrqst_item.issue_qty with total allocated qty per item (with optimistic locking).
+
+Update inventory usable/reserved quantities for affected inventories using inventory_id + item_id from itembatch (with optimistic locking).
+
+If any version conflict occurs, rollback everything and prompt the user to refresh and re-enter allocations.
+
+8. Role behaviour (LO vs LM)
+
+Logistics Officer (LO) uses this drawer from Prepare Relief Package to create initial allocations.
+
+Logistics Manager (LM) uses the same drawer logic from Approve Relief Package to review and optionally adjust those allocations before approval/dispatch.
+
+The UI, layout, and navigation must remain consistent with existing DRIMS styling for both roles.
