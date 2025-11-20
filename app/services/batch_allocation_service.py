@@ -374,7 +374,12 @@ class BatchAllocationService:
                     is_allocated = batch.batch_id in allocated_batch_ids_set
                     available_qty = batch.usable_qty - batch.reserved_qty
                     
-                    # Always include allocated batches (for editing)
+                    # Skip batches with zero available inventory (even if previously allocated)
+                    # This prevents showing empty batches that would fail validation
+                    if available_qty <= 0:
+                        continue
+                    
+                    # Always include allocated batches with available inventory (for editing)
                     if is_allocated:
                         limited_batches.append(batch)
                         warehouse_cumulative_qty += available_qty
