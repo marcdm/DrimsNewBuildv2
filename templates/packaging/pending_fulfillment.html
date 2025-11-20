@@ -182,15 +182,10 @@
         <table class="relief-requests-table" role="table" aria-label="Approved packages">
         <thead>
             <tr>
-                <th scope="col">Package ID</th>
-                <th scope="col">Agency</th>
-                {% if current_filter == 'approved_no_allocation' %}
-                <th scope="col">Requested Items</th>
-                <th scope="col">Approved By</th>
-                {% else %}
+                <th scope="col">Request Number</th>
+                <th scope="col">Requesting Agency</th>
+                <th scope="col">Priority</th>
                 <th scope="col">Items</th>
-                <th scope="col">Total Qty</th>
-                {% endif %}
                 <th scope="col">Approved Date</th>
                 <th scope="col">Status</th>
                 <th scope="col">Actions</th>
@@ -204,10 +199,10 @@
                 <td>
                     <a href="{{ url_for('packaging.transaction_summary', reliefpkg_id=pkg.reliefpkg_id, from_tab=current_filter) }}" 
                        class="table-link"
-                       aria-label="View package details for PKG-{{ '%06d'|format(pkg.reliefpkg_id) }}">
-                        PKG-{{ '%06d'|format(pkg.reliefpkg_id) }}
+                       aria-label="View package details for RR-{{ '%06d'|format(req.reliefrqst_id) }}">
+                        RR-{{ '%06d'|format(req.reliefrqst_id) }}
                     </a>
-                    <div class="table-sku">RR-{{ '%06d'|format(req.reliefrqst_id) }}</div>
+                    <div class="table-sku">PKG-{{ '%06d'|format(pkg.reliefpkg_id) }}</div>
                 </td>
                 <td>
                     {{ req.agency.agency_name if req.agency else 'Unknown' }}
@@ -215,42 +210,47 @@
                     <div class="table-sku">{{ req.agency.contact_name }}</div>
                     {% endif %}
                 </td>
-                {% if current_filter == 'approved_no_allocation' %}
                 <td>
-                    <strong>{{ req.items|length if req.items else 0 }}</strong> items requested
-                    <div class="table-sku text-danger">0 items allocated</div>
-                </td>
-                <td>
-                    {% if pkg.verify_by_id %}
-                    {{ pkg.verify_by_id }}
+                    {% if req.urgency_ind == 'H' %}
+                    {{ status_badge('high', 'High') }}
+                    {% elif req.urgency_ind == 'M' %}
+                    {{ status_badge('medium', 'Medium') }}
+                    {% elif req.urgency_ind == 'L' %}
+                    {{ status_badge('low', 'Low') }}
                     {% else %}
                     <span class="text-muted">N/A</span>
                     {% endif %}
                 </td>
-                {% else %}
-                <td>{{ data.item_count }}</td>
-                <td>{{ data.total_qty|round(2) if data.total_qty else '0' }}</td>
-                {% endif %}
+                <td>
+                    {% if current_filter == 'approved_no_allocation' %}
+                    <strong>{{ req.items|length if req.items else 0 }}</strong> items
+                    <div class="table-sku text-danger">0 allocated</div>
+                    {% else %}
+                    <strong>{{ data.item_count }}</strong> items
+                    <div class="table-sku">{{ data.total_qty|round(2) if data.total_qty else '0' }} total qty</div>
+                    {% endif %}
+                </td>
                 <td>
                     {% if pkg.dispatch_dtime %}
-                    {{ pkg.dispatch_dtime.strftime('%Y-%m-%d %I:%M %p') }}
+                    {{ pkg.dispatch_dtime.strftime('%b %d, %Y') }}
                     <div class="table-sku">{{ (now - pkg.dispatch_dtime).days }} days ago</div>
                     {% else %}
                     <span class="text-muted">N/A</span>
                     {% endif %}
                 </td>
                 <td>
-                    {% if pkg.received_dtime %}
+                    {% if current_filter == 'approved_no_allocation' %}
+                    {{ status_badge('secondary', 'Approved (No Allocation)') }}
+                    {% elif pkg.received_dtime %}
                     {{ status_badge('success', 'Handed Over') }}
-                    <div class="table-sku">{{ pkg.received_dtime.strftime('%Y-%m-%d %I:%M %p') }}</div>
                     {% else %}
                     {{ status_badge('warning', 'Awaiting Handover') }}
                     {% endif %}
                 </td>
                 <td>
                     <a href="{{ url_for('packaging.transaction_summary', reliefpkg_id=pkg.reliefpkg_id, from_tab=current_filter) }}" 
-                       class="btn btn-sm btn-primary"
-                       aria-label="View package details">
+                       class="btn-relief-primary btn-sm"
+                       aria-label="View package details for RR-{{ '%06d'|format(req.reliefrqst_id) }}">
                         <i class="bi bi-eye"></i> View Details
                     </a>
                 </td>
@@ -260,15 +260,33 @@
         </table>
     </div>
     {% else %}
+    <!-- Empty State -->
     <div class="text-center py-5">
-        <i class="bi bi-inbox" style="font-size: 3rem; color: #6c757d;"></i>
-        <p class="mt-3 text-muted">
+        <i class="bi bi-{% if current_filter == 'approved_for_dispatch' %}check-circle{% elif current_filter == 'approved_no_allocation' %}info-circle{% else %}inbox{% endif %} text-muted" style="font-size: 4rem;"></i>
+        <h4 class="mt-3 text-muted">
             {% if current_filter == 'approved_for_dispatch' %}
-            No packages approved for dispatch.
+            No Packages Approved for Dispatch
             {% elif current_filter == 'approved_no_allocation' %}
-            No approved packages with zero allocation.
+            No Approved Packages with Zero Allocation
+            {% elif current_filter == 'pending_approval' %}
+            No Packages Pending Approval
+            {% elif current_filter == 'in_progress' %}
+            No Packages Being Prepared
             {% else %}
-            No relief requests pending fulfillment for this filter.
+            No Requests Awaiting to be Filled
+            {% endif %}
+        </h4>
+        <p class="text-muted">
+            {% if current_filter == 'approved_for_dispatch' %}
+            All approved packages have been handed over to agencies.
+            {% elif current_filter == 'approved_no_allocation' %}
+            No packages have been approved with zero items allocated.
+            {% elif current_filter == 'pending_approval' %}
+            All submitted packages have been reviewed.
+            {% elif current_filter == 'in_progress' %}
+            No packages are currently being prepared.
+            {% else %}
+            All submitted requests have been processed.
             {% endif %}
         </p>
     </div>
