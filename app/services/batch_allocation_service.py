@@ -315,14 +315,12 @@ class BatchAllocationService:
         allocated_batch_ids: List[int] = None
     ) -> Tuple[List[ItemBatch], Decimal, Decimal]:
         """
-        Get batches for the drawer display with intelligent filtering based on issuance order.
+        Get batches for the drawer display with warehouse-based filtering and sorting.
         
-        FEFO Items: Shows ALL active batches in expiry order to ensure visibility of
-        expiring inventory (critical for disaster relief operations).
-        
-        FIFO/LIFO Items: Shows batches from each warehouse until that warehouse can 
-        fulfill remaining_qty OR runs out of batches. Always includes previously 
-        allocated batches for editing.
+        Warehouse Filtering: Only shows warehouses where total (usable_qty - reserved_qty) > 0.
+        Per-Warehouse Sorting: Batches sorted within each warehouse (FEFO if can_expire, else FIFO).
+        Early Stopping: For each warehouse, stops loading batches once cumulative quantity 
+        meets or exceeds remaining_qty.
         
         Args:
             item_id: Item ID
@@ -332,7 +330,7 @@ class BatchAllocationService:
             
         Returns:
             Tuple of:
-                - List of batches (all for FEFO, limited per warehouse for FIFO/LIFO)
+                - List of batches (limited per warehouse based on remaining_qty)
                 - Total available from these batches
                 - Shortfall (0 if can fulfill, positive if not)
         """
@@ -341,72 +339,78 @@ class BatchAllocationService:
         if not item:
             return [], Decimal('0'), remaining_qty
         
-        batches = BatchAllocationService.get_available_batches(item_id, required_uom=required_uom)
-        sorted_batches = BatchAllocationService.sort_batches_by_allocation_rule(batches, item)
-        
+        # Get all available batches (with available qty > 0)
+        all_batches = BatchAllocationService.get_available_batches(item_id, required_uom=required_uom)
         allocated_batch_ids_set = set(allocated_batch_ids or [])
         
-        # Group ALL batches (including allocated) by warehouse, preserving FEFO order
+        # Group batches by warehouse first (before sorting)
         warehouse_groups = {}
-        for batch in sorted_batches:
+        for batch in all_batches:
             warehouse_id = batch.inventory.inventory_id
             if warehouse_id not in warehouse_groups:
-                warehouse_groups[warehouse_id] = []
-            warehouse_groups[warehouse_id].append(batch)
-        
-        # For FEFO items, show ALL batches to ensure visibility of expiring inventory
-        # For FIFO/LIFO, apply per-warehouse limiting to reduce noise
-        is_fefo_item = item.issuance_order == 'FEFO' and item.can_expire_flag
-        
-        if is_fefo_item:
-            # FEFO: Include ALL batches (critical for disaster relief expiry visibility)
-            limited_batches = sorted_batches
-        else:
-            # FIFO/LIFO: Apply per-warehouse limiting until warehouse can fulfill remaining_qty
-            # BUT always include allocated batches even if they exceed the cutoff
-            limited_batches = []
+                warehouse_groups[warehouse_id] = {
+                    'batches': [],
+                    'total_available': Decimal('0')
+                }
             
-            for warehouse_id, wh_batches in warehouse_groups.items():
-                warehouse_cumulative_qty = Decimal('0')
-                warehouse_has_fulfilled = False
-                
-                for batch in wh_batches:
-                    is_allocated = batch.batch_id in allocated_batch_ids_set
-                    available_qty = batch.usable_qty - batch.reserved_qty
-                    
-                    # Skip batches with zero available inventory (even if previously allocated)
-                    # This prevents showing empty batches that would fail validation
-                    if available_qty <= 0:
-                        continue
-                    
-                    # Always include allocated batches with available inventory (for editing)
-                    if is_allocated:
-                        limited_batches.append(batch)
-                        warehouse_cumulative_qty += available_qty
-                        continue
-                    
-                    # For non-allocated batches, only include if warehouse hasn't fulfilled yet
-                    if not warehouse_has_fulfilled:
-                        limited_batches.append(batch)
-                        warehouse_cumulative_qty += available_qty
-                        
-                        # Check if this warehouse can now fulfill remaining_qty
-                        if warehouse_cumulative_qty >= remaining_qty:
-                            warehouse_has_fulfilled = True
+            available_qty = batch.usable_qty - batch.reserved_qty
+            
+            # Skip batches with zero or negative available inventory
+            if available_qty <= 0:
+                continue
+            
+            warehouse_groups[warehouse_id]['batches'].append(batch)
+            warehouse_groups[warehouse_id]['total_available'] += available_qty
         
-        # Re-sort to ensure FEFO ordering is maintained
-        # (allocation status doesn't affect FEFO order)
-        all_batches = BatchAllocationService.sort_batches_by_allocation_rule(limited_batches, item)
+        # Filter out warehouses with zero total available quantity
+        warehouse_groups = {
+            wh_id: wh_data 
+            for wh_id, wh_data in warehouse_groups.items() 
+            if wh_data['total_available'] > 0
+        }
+        
+        # Sort batches WITHIN each warehouse using FEFO/FIFO rules
+        for warehouse_id, wh_data in warehouse_groups.items():
+            wh_data['batches'] = BatchAllocationService.sort_batches_by_allocation_rule(
+                wh_data['batches'],
+                item
+            )
+        
+        # Build limited batch list with per-warehouse early stopping
+        limited_batches = []
+        
+        for warehouse_id, wh_data in warehouse_groups.items():
+            warehouse_cumulative_qty = Decimal('0')
+            warehouse_has_fulfilled = False
+            
+            for batch in wh_data['batches']:
+                is_allocated = batch.batch_id in allocated_batch_ids_set
+                available_qty = batch.usable_qty - batch.reserved_qty
+                
+                # Always include allocated batches with available inventory (for editing)
+                if is_allocated:
+                    limited_batches.append(batch)
+                    warehouse_cumulative_qty += available_qty
+                    continue
+                
+                # For non-allocated batches, only include if warehouse hasn't fulfilled yet
+                if not warehouse_has_fulfilled:
+                    limited_batches.append(batch)
+                    warehouse_cumulative_qty += available_qty
+                    
+                    # Stop loading more batches once this warehouse can fulfill remaining_qty
+                    if warehouse_cumulative_qty >= remaining_qty:
+                        warehouse_has_fulfilled = True
         
         # Calculate total available and shortfall
         cumulative_available = Decimal('0')
-        for batch in all_batches:
+        for batch in limited_batches:
             available_qty = batch.usable_qty - batch.reserved_qty
             cumulative_available += available_qty
         
         shortfall = max(Decimal('0'), remaining_qty - cumulative_available)
         
-        return all_batches, cumulative_available, shortfall
+        return limited_batches, cumulative_available, shortfall
     
     @staticmethod
     def assign_priority_groups(batches: List[ItemBatch], item: Item) -> List[Tuple[ItemBatch, int]]:

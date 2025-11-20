@@ -1,0 +1,77 @@
+Update the warehouse and batch loading logic in the Select Batches side drawer (for LO and LM). No database schema changes; keep the same UI and navigation.
+
+2.1 Warehouse Filtering
+
+When opening the Select Batches drawer for an item:
+
+Show only warehouses where:
+(total usable_qty – total reserved_qty) > 0 for that item in that warehouse.
+
+Any warehouse with no remaining usable stock for that item must not appear at all in the drawer.
+
+2.2 Warehouse Grouping
+
+In the drawer, all batches must be grouped by warehouse.
+
+For each warehouse displayed:
+
+Show a clear group label such as:
+Warehouse: [Warehouse Name or Code]
+
+Groups must remain visually distinct and neatly separated.
+
+3.1 Batch Filtering
+
+Inside each warehouse group, only show batches where:
+itembatch.usable_qty – itembatch.reserved_qty > 0
+
+Do not show batches with:
+
+zero usable quantity remaining
+
+negative remaining quantity
+
+expired or unusable stock
+
+3.2 Sorting Rules (Per Warehouse)
+
+Sorting applies within each warehouse only (NOT across warehouses).
+
+If item can expire (can_expire_flag = TRUE):
+
+Sort by earliest expiry_date first.
+
+If expiry dates are the same → sort by oldest batch_date next.
+
+If item does not expire:
+
+Sort by oldest batch_date (FIFO).
+
+Ensure the FEFO/FIFO logic is applied locally per warehouse.
+
+Do NOT merge batches from different warehouses into a single FEFO sequence.
+
+3.3 Stop When Warehouse Can Fully Cover Remaining Qty
+
+While building the batch list for each warehouse in sorted order:
+
+Keep a running cumulative sum of
+(usable_qty – reserved_qty) for that warehouse.
+
+Once this cumulative sum meets or exceeds the item’s remaining requested quantity:
+
+Stop loading additional batches for that warehouse.
+
+Result required:
+
+Only show the minimum number of batches needed from each warehouse to potentially fulfill the request.
+
+Repeat this logic independently for every warehouse.
+
+3.4 Expired / Unusable Batches
+
+Batches with:
+usable_qty – reserved_qty = 0
+must not be displayed.
+
+Expired batches must never be shown.
