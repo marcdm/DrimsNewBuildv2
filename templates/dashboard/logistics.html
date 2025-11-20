@@ -187,20 +187,5 @@
         <p class="empty-state-subtext">Try selecting a different filter or check back later</p>
     </div>
     {% endif %}
-
-    <!-- Quick Actions Section -->
-    {% if quick_actions %}
-    <div class="mt-4">
-        <h5 class="mb-3">Quick Actions</h5>
-        <div class="d-flex flex-wrap gap-2">
-            {% for action in quick_actions %}
-            <a href="{{ action.url }}" class="btn btn-{{ action.variant }}">
-                <i class="{{ action.icon }} me-1"></i>
-                {{ action.label }}
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}
