@@ -84,7 +84,7 @@ def logistics_dashboard():
     elif current_filter == 'completed':
         requests = base_query.filter_by(
             status_code=rr_service.STATUS_FILLED
-        ).order_by(desc(ReliefRqst.filled_date)).all()
+        ).order_by(desc(ReliefRqst.action_dtime)).all()
     else:  # 'all'
         requests = base_query.filter(
             ReliefRqst.status_code.in_([
@@ -164,9 +164,9 @@ def agency_dashboard():
     elif current_filter == 'approved':
         requests = base_query.filter(
             ReliefRqst.status_code.in_([3, 5])
-        ).order_by(desc(ReliefRqst.approval_date)).all()
+        ).order_by(desc(ReliefRqst.review_dtime)).all()
     elif current_filter == 'completed':
-        requests = base_query.filter_by(status_code=7).order_by(desc(ReliefRqst.filled_date)).all()
+        requests = base_query.filter_by(status_code=7).order_by(desc(ReliefRqst.action_dtime)).all()
     else:  # 'active' - default
         requests = base_query.filter(
             ReliefRqst.status_code.in_([0, 1, 3, 5])
@@ -212,20 +212,20 @@ def director_dashboard():
         joinedload(ReliefRqst.agency),
         joinedload(ReliefRqst.items),
         joinedload(ReliefRqst.status),
-        joinedload(ReliefRqst.event)
+        joinedload(ReliefRqst.eligible_event)
     )
     
     # Apply filters
     if current_filter == 'pending':
         requests = base_query.filter_by(status_code=1).order_by(desc(ReliefRqst.request_date)).all()
     elif current_filter == 'approved':
-        requests = base_query.filter_by(status_code=3).order_by(desc(ReliefRqst.approval_date)).all()
+        requests = base_query.filter_by(status_code=3).order_by(desc(ReliefRqst.review_dtime)).all()
     elif current_filter == 'in_progress':
         requests = base_query.filter(
             ReliefRqst.status_code.in_([1, 3, 5])
         ).order_by(desc(ReliefRqst.request_date)).all()
     elif current_filter == 'completed':
-        requests = base_query.filter_by(status_code=7).order_by(desc(ReliefRqst.filled_date)).all()
+        requests = base_query.filter_by(status_code=7).order_by(desc(ReliefRqst.action_dtime)).all()
     else:  # 'all'
         requests = base_query.order_by(desc(ReliefRqst.request_date)).all()
     
