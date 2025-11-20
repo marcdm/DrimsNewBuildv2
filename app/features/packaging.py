@@ -750,16 +750,29 @@ def pending_fulfillment():
                    and pkg.verify_by_id is not None  # Only submitted packages have verify_by_id set
                    for pkg in req.packages)
     
+    # Helper function to check if request has dispatched packages
+    def has_dispatched_package(req):
+        """
+        Check if request has any packages that have been approved and dispatched.
+        Dispatched packages should only appear in the "Approved for Dispatch" tab.
+        """
+        return any(pkg.status_code == rr_service.PKG_STATUS_DISPATCHED 
+                   for pkg in req.packages)
+    
     if filter_type == 'awaiting':
         # Show all SUBMITTED requests (not yet partially filled)
+        # Exclude requests with dispatched packages (they belong in Approved for Dispatch tab)
         filtered_requests = [r for r in all_requests 
                            if r.status_code == rr_service.STATUS_SUBMITTED 
-                           and not has_pending_approval(r)]
+                           and not has_pending_approval(r)
+                           and not has_dispatched_package(r)]
     elif filter_type == 'in_progress':
         # Being Prepared: Show PART_FILLED requests (in active preparation)
+        # Exclude requests with dispatched packages (they belong in Approved for Dispatch tab)
         filtered_requests = [r for r in all_requests 
                            if r.status_code == rr_service.STATUS_PART_FILLED
-                           and not has_pending_approval(r)]
+                           and not has_pending_approval(r)
+                           and not has_dispatched_package(r)]
     elif filter_type == 'pending_approval':
         # Show only requests with packages awaiting LM approval
         filtered_requests = [r for r in all_requests if has_pending_approval(r)]
@@ -774,10 +787,12 @@ def pending_fulfillment():
     global_counts = {
         'submitted': len([r for r in all_requests 
                          if r.status_code == rr_service.STATUS_SUBMITTED 
-                         and not has_pending_approval(r)]),
+                         and not has_pending_approval(r)
+                         and not has_dispatched_package(r)]),
         'in_progress': len([r for r in all_requests 
                            if r.status_code == rr_service.STATUS_PART_FILLED
-                           and not has_pending_approval(r)]),
+                           and not has_pending_approval(r)
+                           and not has_dispatched_package(r)]),
         'pending_approval': len([r for r in all_requests if has_pending_approval(r)]),
         'approved': approved_packages_count
     }
@@ -785,10 +800,12 @@ def pending_fulfillment():
     filtered_counts = {
         'submitted': len([r for r in filtered_requests 
                          if r.status_code == rr_service.STATUS_SUBMITTED 
-                         and not has_pending_approval(r)]),
+                         and not has_pending_approval(r)
+                         and not has_dispatched_package(r)]),
         'in_progress': len([r for r in filtered_requests 
                            if r.status_code == rr_service.STATUS_PART_FILLED
-                           and not has_pending_approval(r)]),
+                           and not has_pending_approval(r)
+                           and not has_dispatched_package(r)]),
         'pending_approval': len([r for r in filtered_requests if has_pending_approval(r)])
     }
     
