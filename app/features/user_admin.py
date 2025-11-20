@@ -6,6 +6,59 @@ from app.core.rbac import role_required
 
 user_admin_bp = Blueprint('user_admin', __name__)
 
+def get_assignable_roles(user):
+    """
+    Get roles that the current user is allowed to assign to other users.
+    
+    - SYSTEM_ADMINISTRATOR: Can assign ANY role (full privileges)
+    - CUSTODIAN: Can assign operational roles only (excludes admin roles)
+    
+    Returns:
+        List of Role objects the user can assign
+    """
+    user_role_codes = [role.code for role in user.roles]
+    
+    # System administrators can assign any role
+    if 'SYSTEM_ADMINISTRATOR' in user_role_codes or 'SYS_ADMIN' in user_role_codes:
+        return Role.query.all()
+    
+    # Custodians can assign operational roles only (no admin elevation)
+    if 'CUSTODIAN' in user_role_codes:
+        restricted_roles = ['SYSTEM_ADMINISTRATOR', 'SYS_ADMIN']
+        return Role.query.filter(~Role.code.in_(restricted_roles)).all()
+    
+    # Default: no role assignment privileges
+    return []
+
+def validate_role_assignment(user, role_ids):
+    """
+    Validate that the current user has permission to assign the specified roles.
+    
+    Args:
+        user: Current user attempting to assign roles
+        role_ids: List of role IDs being assigned
+        
+    Returns:
+        tuple: (is_valid: bool, error_message: str or None)
+    """
+    if not role_ids:
+        return True, None
+    
+    assignable_roles = get_assignable_roles(user)
+    assignable_role_ids = {role.id for role in assignable_roles}
+    
+    attempted_role_ids = set(role_ids)
+    
+    # Check if user is trying to assign roles they don't have permission for
+    unauthorized_ids = attempted_role_ids - assignable_role_ids
+    
+    if unauthorized_ids:
+        unauthorized_roles = Role.query.filter(Role.id.in_(unauthorized_ids)).all()
+        role_names = ', '.join([r.name for r in unauthorized_roles])
+        return False, f'You do not have permission to assign the following roles: {role_names}'
+    
+    return True, None
+
 @user_admin_bp.route('/')
 @login_required
 @role_required('SYSTEM_ADMINISTRATOR', 'SYS_ADMIN', 'CUSTODIAN')
@@ -56,7 +109,7 @@ def create():
             agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
             custodians = Custodian.query.order_by(Custodian.custodian_name).all()
             return render_template('user_admin/create.html', 
-                                 roles=Role.query.all(),
+                                 roles=get_assignable_roles(current_user),
                                  warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                  agencies=agencies,
                                  custodians=custodians)
@@ -66,7 +119,7 @@ def create():
             agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
             custodians = Custodian.query.order_by(Custodian.custodian_name).all()
             return render_template('user_admin/create.html',
-                                 roles=Role.query.all(),
+                                 roles=get_assignable_roles(current_user),
                                  warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                  agencies=agencies,
                                  custodians=custodians)
@@ -80,7 +133,7 @@ def create():
                 agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                 custodians = Custodian.query.order_by(Custodian.custodian_name).all()
                 return render_template('user_admin/create.html',
-                                     roles=Role.query.all(),
+                                     roles=get_assignable_roles(current_user),
                                      warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                      agencies=agencies,
                                      custodians=custodians)
@@ -92,7 +145,7 @@ def create():
                 agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                 custodians = Custodian.query.order_by(Custodian.custodian_name).all()
                 return render_template('user_admin/create.html',
-                                     roles=Role.query.all(),
+                                     roles=get_assignable_roles(current_user),
                                      warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                      agencies=agencies,
                                      custodians=custodians)
@@ -102,7 +155,7 @@ def create():
                 agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                 custodians = Custodian.query.order_by(Custodian.custodian_name).all()
                 return render_template('user_admin/create.html',
-                                     roles=Role.query.all(),
+                                     roles=get_assignable_roles(current_user),
                                      warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                      agencies=agencies,
                                      custodians=custodians)
@@ -117,7 +170,7 @@ def create():
                     agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                     custodians = Custodian.query.order_by(Custodian.custodian_name).all()
                     return render_template('user_admin/create.html',
-                                         roles=Role.query.all(),
+                                         roles=get_assignable_roles(current_user),
                                          warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                          agencies=agencies,
                                          custodians=custodians)
@@ -132,7 +185,7 @@ def create():
                     agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                     custodians = Custodian.query.order_by(Custodian.custodian_name).all()
                     return render_template('user_admin/create.html',
-                                         roles=Role.query.all(),
+                                         roles=get_assignable_roles(current_user),
                                          warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                          agencies=agencies,
                                          custodians=custodians)
@@ -158,6 +211,20 @@ def create():
             db.session.flush()
             
             role_ids = request.form.getlist('roles')
+            if role_ids:
+                role_ids_int = [int(r) for r in role_ids]
+                is_valid, error_msg = validate_role_assignment(current_user, role_ids_int)
+                if not is_valid:
+                    db.session.rollback()
+                    flash(error_msg, 'danger')
+                    agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
+                    custodians = Custodian.query.order_by(Custodian.custodian_name).all()
+                    return render_template('user_admin/create.html',
+                                         roles=get_assignable_roles(current_user),
+                                         warehouses=Warehouse.query.filter_by(status_code='A').all(),
+                                         agencies=agencies,
+                                         custodians=custodians)
+            
             for role_id in role_ids:
                 user_role = UserRole(user_id=new_user.user_id, role_id=int(role_id))
                 db.session.add(user_role)
@@ -177,12 +244,12 @@ def create():
             agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
             custodians = Custodian.query.order_by(Custodian.custodian_name).all()
             return render_template('user_admin/create.html',
-                                 roles=Role.query.all(),
+                                 roles=get_assignable_roles(current_user),
                                  warehouses=Warehouse.query.filter_by(status_code='A').all(),
                                  agencies=agencies,
                                  custodians=custodians)
     
-    roles = Role.query.all()
+    roles = get_assignable_roles(current_user)
     warehouses = Warehouse.query.filter_by(status_code='A').all()
     agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
     custodians = Custodian.query.order_by(Custodian.custodian_name).all()
@@ -213,7 +280,7 @@ def edit(user_id):
             flash('Organization field is required.', 'danger')
             agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
             custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-            roles = Role.query.all()
+            roles = get_assignable_roles(current_user)
             warehouses = Warehouse.query.filter_by(status_code='A').all()
             user_role_ids = [r.id for r in user.roles]
             user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -247,7 +314,7 @@ def edit(user_id):
             flash('User name is required.', 'danger')
             agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
             custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-            roles = Role.query.all()
+            roles = get_assignable_roles(current_user)
             warehouses = Warehouse.query.filter_by(status_code='A').all()
             user_role_ids = [r.id for r in user.roles]
             user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -276,7 +343,7 @@ def edit(user_id):
                 flash('Invalid organization format. Please select from the dropdown.', 'danger')
                 agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                 custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-                roles = Role.query.all()
+                roles = get_assignable_roles(current_user)
                 warehouses = Warehouse.query.filter_by(status_code='A').all()
                 user_role_ids = [r.id for r in user.roles]
                 user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -303,7 +370,7 @@ def edit(user_id):
                 flash('Invalid organization type. Must be AGENCY or CUSTODIAN.', 'danger')
                 agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                 custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-                roles = Role.query.all()
+                roles = get_assignable_roles(current_user)
                 warehouses = Warehouse.query.filter_by(status_code='A').all()
                 user_role_ids = [r.id for r in user.roles]
                 user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -328,7 +395,7 @@ def edit(user_id):
                 flash('Invalid organization ID format.', 'danger')
                 agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                 custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-                roles = Role.query.all()
+                roles = get_assignable_roles(current_user)
                 warehouses = Warehouse.query.filter_by(status_code='A').all()
                 user_role_ids = [r.id for r in user.roles]
                 user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -358,7 +425,7 @@ def edit(user_id):
                     flash('Invalid agency selected.', 'danger')
                     agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                     custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-                    roles = Role.query.all()
+                    roles = get_assignable_roles(current_user)
                     warehouses = Warehouse.query.filter_by(status_code='A').all()
                     user_role_ids = [r.id for r in user.roles]
                     user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -388,7 +455,7 @@ def edit(user_id):
                     flash('Invalid custodian selected.', 'danger')
                     agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
                     custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-                    roles = Role.query.all()
+                    roles = get_assignable_roles(current_user)
                     warehouses = Warehouse.query.filter_by(status_code='A').all()
                     user_role_ids = [r.id for r in user.roles]
                     user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -427,6 +494,35 @@ def edit(user_id):
             
             UserRole.query.filter_by(user_id=user.user_id).delete()
             role_ids = request.form.getlist('roles')
+            if role_ids:
+                role_ids_int = [int(r) for r in role_ids]
+                is_valid, error_msg = validate_role_assignment(current_user, role_ids_int)
+                if not is_valid:
+                    db.session.rollback()
+                    flash(error_msg, 'danger')
+                    agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
+                    custodians = Custodian.query.order_by(Custodian.custodian_name).all()
+                    roles = get_assignable_roles(current_user)
+                    warehouses = Warehouse.query.filter_by(status_code='A').all()
+                    user_role_ids = [r.id for r in user.roles]
+                    user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
+                    current_org_value = ''
+                    if user.agency_id:
+                        current_org_value = f'AGENCY:{user.agency_id}'
+                    elif user.organization:
+                        custodian = Custodian.query.filter_by(custodian_name=user.organization).first()
+                        if custodian:
+                            current_org_value = f'CUSTODIAN:{custodian.custodian_id}'
+                    return render_template('user_admin/edit.html',
+                                         user=user,
+                                         roles=roles,
+                                         warehouses=warehouses,
+                                         agencies=agencies,
+                                         custodians=custodians,
+                                         user_role_ids=user_role_ids,
+                                         user_warehouse_ids=user_warehouse_ids,
+                                         current_org_value=current_org_value)
+            
             for role_id in role_ids:
                 user_role = UserRole(user_id=user.user_id, role_id=int(role_id))
                 db.session.add(user_role)
@@ -447,7 +543,7 @@ def edit(user_id):
             flash(f'Error updating user: {str(e)}', 'danger')
             agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
             custodians = Custodian.query.order_by(Custodian.custodian_name).all()
-            roles = Role.query.all()
+            roles = get_assignable_roles(current_user)
             warehouses = Warehouse.query.filter_by(status_code='A').all()
             user_role_ids = [r.id for r in user.roles]
             user_warehouse_ids = [w.warehouse_id for w in user.warehouses]
@@ -468,7 +564,7 @@ def edit(user_id):
                                  user_warehouse_ids=user_warehouse_ids,
                                  current_org_value=current_org_value)
     
-    roles = Role.query.all()
+    roles = get_assignable_roles(current_user)
     warehouses = Warehouse.query.filter_by(status_code='A').all()
     agencies = Agency.query.filter_by(status_code='A').order_by(Agency.agency_name).all()
     custodians = Custodian.query.order_by(Custodian.custodian_name).all()
