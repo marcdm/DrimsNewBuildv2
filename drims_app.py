@@ -136,37 +136,14 @@ def inject_now():
 @app.route('/')
 @login_required
 def index():
-    """Home dashboard with KPI cards"""
-    from sqlalchemy import func
-    
-    total_warehouses = Warehouse.query.filter_by(status_code='A').count()
-    total_items = Item.query.filter_by(status_code='A').count()
-    active_events = Event.query.filter_by(status_code='A').count()
-    pending_requests = ReliefRqst.query.filter(ReliefRqst.status_code.in_([0, 1, 3])).count()
-    
-    total_stock_value = db.session.query(
-        func.sum(Inventory.usable_qty)
-    ).filter_by(status_code='A').scalar() or 0
-    
-    low_stock_items = db.session.query(func.count(Inventory.inventory_id)).filter(
-        Inventory.usable_qty < Item.reorder_qty,
-        Inventory.item_id == Item.item_id,
-        Inventory.status_code == 'A'
-    ).scalar() or 0
-    
-    return render_template('index.html',
-                         total_warehouses=total_warehouses,
-                         total_items=total_items,
-                         active_events=active_events,
-                         pending_requests=pending_requests,
-                         total_stock_value=total_stock_value,
-                         low_stock_items=low_stock_items)
+    """Redirect to role-based dashboard"""
+    return redirect(url_for('dashboard.index'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """User login"""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard.index'))
     
     if request.method == 'POST':
         email = request.form.get('email')
@@ -177,7 +154,7 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             next_page = request.args.get('next')
-            return redirect(next_page if next_page else url_for('index'))
+            return redirect(next_page if next_page else url_for('dashboard.index'))
         else:
             flash('Invalid email or password', 'danger')
     
