@@ -311,10 +311,10 @@ class BatchAllocationService:
         """
         Get batches for the drawer display with intelligent filtering based on issuance order.
         
-        FEFO/FIFO Items: Shows top 3 batches in priority order (earliest expiry for FEFO, 
-        earliest batch date for FIFO), always including previously allocated batches.
+        FEFO Items: Shows ALL active batches in expiry order to ensure visibility of
+        expiring inventory (critical for disaster relief operations).
         
-        LIFO Items: Shows batches from each warehouse until that warehouse can 
+        FIFO/LIFO Items: Shows batches from each warehouse until that warehouse can 
         fulfill remaining_qty OR runs out of batches. Always includes previously 
         allocated batches for editing.
         
@@ -326,7 +326,7 @@ class BatchAllocationService:
             
         Returns:
             Tuple of:
-                - List of batches (top 3 for FEFO/FIFO, limited per warehouse for LIFO)
+                - List of batches (all for FEFO, limited per warehouse for FIFO/LIFO)
                 - Total available from these batches
                 - Shortfall (0 if can fulfill, positive if not)
         """
@@ -340,42 +340,24 @@ class BatchAllocationService:
         
         allocated_batch_ids_set = set(allocated_batch_ids or [])
         
-        # Separate allocated and non-allocated batches
-        allocated_batches = [b for b in sorted_batches if b.batch_id in allocated_batch_ids_set]
-        non_allocated_batches = [b for b in sorted_batches if b.batch_id not in allocated_batch_ids_set]
+        # Group ALL batches (including allocated) by warehouse, preserving FEFO order
+        warehouse_groups = {}
+        for batch in sorted_batches:
+            warehouse_id = batch.inventory.inventory_id
+            if warehouse_id not in warehouse_groups:
+                warehouse_groups[warehouse_id] = []
+            warehouse_groups[warehouse_id].append(batch)
         
-        # Determine limiting strategy based on issuance order
+        # For FEFO items, show ALL batches to ensure visibility of expiring inventory
+        # For FIFO/LIFO, apply per-warehouse limiting to reduce noise
         is_fefo_item = item.issuance_order == 'FEFO' and item.can_expire_flag
-        is_fifo_item = item.issuance_order == 'FIFO'
         
-        if is_fefo_item or is_fifo_item:
-            # FEFO/FIFO: Show top 3 batches in priority order
-            # BUT if top 3 can't fulfill remaining_qty, show more until we can fulfill
-            top_batches = []
-            cumulative_qty = Decimal('0')
-            
-            for i, batch in enumerate(non_allocated_batches):
-                available_qty = batch.usable_qty - batch.reserved_qty
-                
-                # Include first 3 batches OR continue until we can fulfill remaining_qty
-                if i < 3 or cumulative_qty < remaining_qty:
-                    top_batches.append(batch)
-                    cumulative_qty += available_qty
-                else:
-                    # We have 3+ batches and can fulfill the quantity
-                    break
-            
-            limited_batches = allocated_batches + top_batches
+        if is_fefo_item:
+            # FEFO: Include ALL batches (critical for disaster relief expiry visibility)
+            limited_batches = sorted_batches
         else:
-            # LIFO: Apply per-warehouse limiting until warehouse can fulfill remaining_qty
+            # FIFO/LIFO: Apply per-warehouse limiting until warehouse can fulfill remaining_qty
             # BUT always include allocated batches even if they exceed the cutoff
-            warehouse_groups = {}
-            for batch in sorted_batches:
-                warehouse_id = batch.inventory.inventory_id
-                if warehouse_id not in warehouse_groups:
-                    warehouse_groups[warehouse_id] = []
-                warehouse_groups[warehouse_id].append(batch)
-            
             limited_batches = []
             
             for warehouse_id, wh_batches in warehouse_groups.items():
@@ -401,7 +383,8 @@ class BatchAllocationService:
                         if warehouse_cumulative_qty >= remaining_qty:
                             warehouse_has_fulfilled = True
         
-        # Re-sort to ensure proper ordering is maintained
+        # Re-sort to ensure FEFO ordering is maintained
+        # (allocation status doesn't affect FEFO order)
         all_batches = BatchAllocationService.sort_batches_by_allocation_rule(limited_batches, item)
         
         # Calculate total available and shortfall
