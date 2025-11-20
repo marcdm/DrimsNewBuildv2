@@ -268,7 +268,13 @@ class BatchAllocationService:
         # Check quantity
         available_qty = batch.usable_qty - batch.reserved_qty
         if allocated_qty > available_qty:
-            return False, f'Batch {batch.batch_no} has only {available_qty} available, cannot allocate {allocated_qty}'
+            if available_qty <= 0:
+                return False, (f'Batch {batch.batch_no} has no available inventory (all {batch.usable_qty} units are reserved or allocated). '
+                             f'This may occur if another user allocated from this batch while you were working. '
+                             f'Please refresh the page and select a different batch with available stock.')
+            else:
+                return False, (f'Batch {batch.batch_no} has only {available_qty:.4f} units available, cannot allocate {allocated_qty:.4f}. '
+                             f'Please reduce the allocation quantity or select an additional batch.')
         
         if allocated_qty <= 0:
             return False, 'Allocated quantity must be greater than zero'
