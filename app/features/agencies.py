@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from app.db.models import db, Agency, Parish, Event, Warehouse, ReliefRqst
 from app.core.audit import add_audit_fields
 from app.core.phone_utils import validate_phone_format, get_phone_validation_error
-from app.core.rbac import feature_required
+from app.core.decorators import feature_required
 import re
 
 agencies_bp = Blueprint('agencies', __name__)
