@@ -599,6 +599,9 @@ def transaction_summary(reliefpkg_id):
         flash('Access denied. Only Logistics Officers and Managers can view transaction summaries.', 'danger')
         abort(403)
     
+    # Get the tab the user came from (for proper back navigation)
+    from_tab = request.args.get('from_tab', 'approved_for_dispatch')
+    
     # Load package with all related data
     relief_pkg = ReliefPkg.query.options(
         joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.agency),
@@ -662,7 +665,8 @@ def transaction_summary(reliefpkg_id):
                          total_items=total_items,
                          total_batches=total_batches,
                          warehouses_used=warehouses_used,
-                         generated_at=datetime.now())
+                         generated_at=datetime.now(),
+                         from_tab=from_tab)
 
 
 @packaging_bp.route('/create-request-on-behalf', methods=['GET', 'POST'])

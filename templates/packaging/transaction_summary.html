@@ -256,7 +256,17 @@
         <i class="bi bi-printer"></i>
         Print Transaction Summary
     </button>
-    {% if has_role('LOGISTICS_MANAGER') %}
+    {% if from_tab == 'approved_no_allocation' %}
+    <a href="{{ url_for('packaging.pending_fulfillment', filter='approved_no_allocation') }}" class="btn-back">
+        <i class="bi bi-arrow-left"></i>
+        Back to Approved (No Allocation)
+    </a>
+    {% elif from_tab == 'approved_for_dispatch' %}
+    <a href="{{ url_for('packaging.pending_fulfillment', filter='approved_for_dispatch') }}" class="btn-back">
+        <i class="bi bi-arrow-left"></i>
+        Back to Approved for Dispatch
+    </a>
+    {% elif has_role('LOGISTICS_MANAGER') %}
     <a href="{{ url_for('packaging.pending_approval') }}" class="btn-back">
         <i class="bi bi-arrow-left"></i>
         Back to Pending Approval

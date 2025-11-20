@@ -1,0 +1,78 @@
+Fix all routing and behaviour for the “Approved for Dispatch” and “Approved (No Allocation)” tabs for both LM and LO. Do NOT change the database schema; keep existing DRIMS UI style.
+
+1. Tab visibility & scope (LM vs LO)
+
+Logistics Manager (LM) view on the Relief Request Fulfillment page must:
+
+Show both tabs: “Approved for Dispatch” and “Approved (No Allocation)”.
+
+Logistics Officer (LO) view must:
+
+Show the same tabs only for requests they are associated with (created/prepared by them or in their scope).
+
+Neither LM nor LO should see requests that are unrelated to them (respect existing ownership/assignment filters).
+
+2. “Approved for Dispatch” tab – routing & click behaviour
+
+The “Approved for Dispatch” tab must list all packages that:
+
+Have been approved by the LM, and
+
+Have items allocated (> 0) and are ready for Inventory Clerk dispatch.
+
+When LM or LO clicks a row in this tab:
+
+For LM: open the correct read-only approval/summary page for that package (e.g. Approve/Review Relief Package summary view).
+
+For LO: open a read-only summary view showing what was approved and allocated.
+
+Ensure these clicks do not route back to any “Being Prepared” or wrong preparation pages.
+
+Any “View details” / hyperlink / tracking number click must point to one consistent detail route for LM and one for LO (if they differ), both showing the correct approved state.
+
+3. “Approved (No Allocation)” tab – routing & click behaviour
+
+The “Approved (No Allocation)” tab must list only packages that:
+
+Are approved by the LM, and
+
+Have no items allocated (all issue/allocated quantities = 0).
+
+When LM or LO clicks a row in this tab:
+
+Open a read-only summary view that clearly shows:
+
+Requested items
+
+Zero allocation/issue quantities
+
+Status such as “Unavailable / No Stock / No Allocation”.
+
+Ensure this view is not the dispatch preparation or allocation screen.
+
+All links (tracking ID, “View details”, etc.) from this tab must consistently route to that correct read-only “No Allocation” summary page.
+
+4. Correct routing targets
+
+Verify and update all routing so that:
+
+From “Approved for Dispatch”, LM and LO always land on the approved-with-allocation detail page.
+
+From “Approved (No Allocation)”, LM and LO always land on the approved-with-no-allocation detail page.
+
+No tab or link sends users back to Being Prepared or to the wrong role’s page.
+
+Fix any hard-coded or outdated routes so they use the correct URL patterns:
+
+e.g. /fulfillment/approved/<package_id>
+
+/fulfillment/approved-no-allocation/<package_id>
+(or whatever the existing patterns are in the app — reuse them consistently).
+
+5. General
+
+Do not alter the workflow statuses themselves, only the filters and routing for these two tabs.
+
+Keep the tab names, styling, and overall navigation consistent with the rest of DRIMS.
+
+Make sure back buttons/breadcrumbs from the detail pages return to the correct tab (Approved for Dispatch vs Approved (No Allocation)) for both LM and LO.

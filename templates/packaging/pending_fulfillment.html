@@ -202,7 +202,7 @@
             {% set req = data.relief_request %}
             <tr>
                 <td>
-                    <a href="{{ url_for('packaging.transaction_summary', reliefpkg_id=pkg.reliefpkg_id) }}" 
+                    <a href="{{ url_for('packaging.transaction_summary', reliefpkg_id=pkg.reliefpkg_id, from_tab=current_filter) }}" 
                        class="table-link"
                        aria-label="View package details for PKG-{{ '%06d'|format(pkg.reliefpkg_id) }}">
                         PKG-{{ '%06d'|format(pkg.reliefpkg_id) }}
@@ -248,7 +248,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    <a href="{{ url_for('packaging.transaction_summary', reliefpkg_id=pkg.reliefpkg_id) }}" 
+                    <a href="{{ url_for('packaging.transaction_summary', reliefpkg_id=pkg.reliefpkg_id, from_tab=current_filter) }}" 
                        class="btn btn-sm btn-primary"
                        aria-label="View package details">
                         <i class="bi bi-eye"></i> View Details
