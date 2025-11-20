@@ -183,18 +183,6 @@ class FeatureRegistry:
             'navigation_group': 'packaging',
             'priority': 15
         },
-        'package_approval': {
-            'name': 'Approve Packages',
-            'description': 'Review and approve prepared packages for dispatch',
-            'roles': ['LOGISTICS_MANAGER'],  # Verified: packaging.py shows is_logistics_manager() only
-            'route': 'packaging.pending_approval',
-            'url': '/packaging/pending-approval',
-            'icon': 'bi-check-circle',
-            'category': 'packaging',
-            'dashboard_widget': 'approval_queue_widget',
-            'navigation_group': 'packaging',
-            'priority': 18
-        },
         'dispatch_awaiting': {
             'name': 'Awaiting Dispatch',
             'description': 'Process packages awaiting handover to agencies',
