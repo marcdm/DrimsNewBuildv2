@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, Response
 from flask_login import login_required
 from sqlalchemy import func
-from app.db.models import db, Inventory, Item, Warehouse, Event, Donor, Donation
+from app.db.models import db, Inventory, Item, Warehouse, Event, Donor, Donation, DonationIntakeItem
 from datetime import datetime
 import csv
 from io import StringIO
@@ -72,16 +72,29 @@ def export_inventory():
 @reports_bp.route('/donations_summary')
 @login_required
 def donations_summary():
+    # Calculate total value from DonationIntakeItem (quantity * unit value)
     donations = db.session.query(
         Donor.donor_name,
-        func.count(Donation.donation_id).label('donation_count'),
-        func.sum(Donation.total_value).label('total_value')
+        func.count(func.distinct(Donation.donation_id)).label('donation_count'),
+        func.sum(
+            (DonationIntakeItem.usable_qty + 
+             DonationIntakeItem.defective_qty + 
+             DonationIntakeItem.expired_qty) * 
+            DonationIntakeItem.avg_unit_value
+        ).label('total_value')
     ).join(
         Donation, Donor.donor_id == Donation.donor_id
+    ).outerjoin(
+        DonationIntakeItem, Donation.donation_id == DonationIntakeItem.donation_id
     ).group_by(
         Donor.donor_name
     ).order_by(
-        func.sum(Donation.total_value).desc()
+        func.sum(
+            (DonationIntakeItem.usable_qty + 
+             DonationIntakeItem.defective_qty + 
+             DonationIntakeItem.expired_qty) * 
+            DonationIntakeItem.avg_unit_value
+        ).desc()
     ).all()
     
     return render_template('reports/donations_summary.html', donations=donations)
