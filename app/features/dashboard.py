@@ -304,17 +304,9 @@ def inventory_dashboard():
         func.sum(Inventory.usable_qty) <= Item.reorder_qty
     ).limit(10).all()
     
-    total_inventory_value = db.session.query(
-        func.sum(Inventory.usable_qty * Item.unit_cost)
-    ).join(Item).filter(
-        Inventory.usable_qty > 0,
-        Item.status_code == 'A'
-    ).scalar() or 0
-    
     context = {
         **dashboard_data,
         'low_stock_items': low_stock_items,
-        'total_inventory_value': total_inventory_value,
     }
     
     return render_template('dashboard/inventory.html', **context)
