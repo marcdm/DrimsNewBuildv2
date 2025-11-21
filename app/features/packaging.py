@@ -846,9 +846,18 @@ def pending_fulfillment():
                    for pkg in req.packages)
     
     def is_lo_involved_with_request(req):
-        """Check if LO is involved with this request (created it or worked on its packages)."""
+        """Check if LO is involved with this request (created, took action on, or worked on packages/items)."""
+        # LO created the request
         if req.create_by_id == current_user_name:
             return True
+        # LO took action on the request (fulfillment actions)
+        if hasattr(req, 'action_by_id') and req.action_by_id == current_user_name:
+            return True
+        # LO took action on any request items
+        if any(hasattr(item, 'action_by_id') and item.action_by_id == current_user_name 
+               for item in req.items):
+            return True
+        # LO worked on any packages
         return any(pkg.create_by_id == current_user_name or pkg.update_by_id == current_user_name 
                   for pkg in req.packages)
     
@@ -925,7 +934,7 @@ def pending_fulfillment():
         return results
     
     def get_approved_packages_with_items():
-        """Get approved packages WITH items allocated."""
+        """Get approved packages WITH items allocated (total quantity > 0)."""
         all_packages = ReliefPkg.query.options(
             joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.agency),
             joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.eligible_event),
@@ -937,8 +946,10 @@ def pending_fulfillment():
         
         results = []
         for pkg in all_packages:
-            # Only packages WITH items
-            if len(pkg.items) == 0:
+            # Calculate total quantity - matches template logic
+            total_qty = sum(item.item_qty for item in pkg.items if item.item_qty)
+            # Only packages WITH total quantity > 0
+            if total_qty == 0:
                 continue
             # Apply role filter
             if is_lm or is_lo_involved_with_package(pkg):
@@ -946,7 +957,7 @@ def pending_fulfillment():
         return results
     
     def get_approved_packages_no_items():
-        """Get approved packages WITHOUT items allocated."""
+        """Get approved packages WITHOUT items allocated (total quantity == 0)."""
         all_packages = ReliefPkg.query.options(
             joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.agency),
             joinedload(ReliefPkg.relief_request).joinedload(ReliefRqst.eligible_event),
@@ -959,8 +970,10 @@ def pending_fulfillment():
         
         results = []
         for pkg in all_packages:
-            # Only packages WITHOUT items
-            if len(pkg.items) > 0:
+            # Calculate total quantity - matches template logic
+            total_qty = sum(item.item_qty for item in pkg.items if item.item_qty)
+            # Only packages WITHOUT total quantity (zero or no items)
+            if total_qty > 0:
                 continue
             # Apply role filter
             if is_lm or is_lo_involved_with_package(pkg):

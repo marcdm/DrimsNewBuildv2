@@ -1,0 +1,65 @@
+Create an executive Operations Dashboard for the DG, Deputy DG, and Director PEOD roles. Do NOT break any existing code, logic, behaviour, workflow, or modify the database schema. Reuse existing data and APIs only.
+
+1. Access & Role Scope
+
+The dashboard must be visible only to users with one of these roles:
+
+Director General (DG)
+
+Deputy Director General (Deputy DG)
+
+Director, PEOD
+
+These users must see system-wide operations data, not just their own.
+
+2. Focus of the Dashboard (Operations Only)
+
+The dashboard must show high-level charts and stats for Operations in DRIMS, limited to:
+
+Donations (donation headers & items)
+
+Relief Requests & Fulfillment (requests, packages, allocations)
+
+No configuration/admin data; this is strictly operational performance.
+
+3. Suggested KPIs & Visuals (Read-Only)
+
+Use existing fields to compute read-only metrics such as:
+
+Total donations received over selectable period (e.g. last 7/30/90 days).
+
+Breakdown of donations by agency, event, priority, or item category.
+
+Number of relief requests submitted / approved / fulfilled / dispatched over time.
+
+Current counts of requests by status: awaiting to be filled, being prepared, awaiting approval, approved for dispatch, approved (no allocation), completed.
+
+Average time from request submission → approval → dispatch (where data is available).
+
+Provide 2–4 simple charts, for example:
+
+Time-series chart of donations and fulfilled requests per week/month.
+
+Status breakdown chart for relief requests.
+
+Top N requesting agencies or events by number of fulfilled requests.
+
+Include KPI tiles (cards) at the top with key numbers (e.g. “Total Donations (Last 30 Days)”, “Requests Fulfilled This Month”).
+
+4. UI & Navigation
+
+Add a new menu item for these roles, e.g. “Executive Operations Dashboard”, and route it to the new page.
+
+Follow existing DRIMS styling (header, sidebar, colours, fonts, spacing).
+
+Dashboard is read-only; no buttons that change state or trigger workflows.
+
+5. Technical Constraints
+
+Reuse existing services/endpoints or add new read-only ones that query current tables; do not alter any schemas.
+
+Do not change existing workflows for Donations or Relief Requests.
+
+Ensure performance is acceptable (efficient aggregation, reasonable time windows by default).
+
+Respect current role/permission model so only DG, Deputy DG, and Director PEOD can access this page.
