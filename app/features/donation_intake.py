@@ -207,13 +207,19 @@ def _process_intake_submission(donation, warehouse):
     intake_date_str = request.form.get('intake_date')
     comments_text = request.form.get('comments_text', '').strip()
     
+    # Initialize intake_date to None to avoid unbound variable
+    intake_date = None
+    
     # Validate intake date
     if not intake_date_str:
         errors.append('Intake date is required')
     else:
-        intake_date = datetime.strptime(intake_date_str, '%Y-%m-%d').date()
-        if intake_date > date.today():
-            errors.append('Intake date cannot be in the future')
+        try:
+            intake_date = datetime.strptime(intake_date_str, '%Y-%m-%d').date()
+            if intake_date > date.today():
+                errors.append('Intake date cannot be in the future')
+        except ValueError:
+            errors.append('Invalid intake date format')
     
     # Validate comments length
     if len(comments_text) > 255:

@@ -85,14 +85,7 @@ app.jinja_env.globals.update(
     get_feature_details=get_feature_details
 )
 
-@app.template_filter('format_date')
-def format_date_filter(date_val, format_str='%Y-%m-%d'):
-    """Format date to YYYY-MM-DD (or custom format)"""
-    if date_val is None:
-        return ''
-    if isinstance(date_val, str):
-        return date_val
-    return date_val.strftime(format_str)
+# Date formatting filter moved below to use timezone utilities
 
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 app.register_blueprint(events_bp)
@@ -171,7 +164,7 @@ def login():
         
         user = User.query.filter_by(email=email).first()
         
-        if user and check_password_hash(user.password_hash, password):
+        if user and password and check_password_hash(user.password_hash, password):
             login_user(user)
             next_page = request.args.get('next')
             return redirect(next_page if next_page else url_for('dashboard.index'))
