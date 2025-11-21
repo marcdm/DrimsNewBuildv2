@@ -1,0 +1,79 @@
+Fix the inventory quantity update logic for Dispatch Approval.
+When the Logistics Manager (LM) clicks Send to Dispatch or Approve & Dispatch, the inventory table must be updated to stay consistent with the itembatch table.
+This change must not break any existing workflow, logic, behaviour, or database schema.
+
+Current Issue
+
+When dispatch is approved:
+
+The itembatch table correctly updates usable_qty and reserved_qty.
+
+But the inventory table does NOT update its usable_qty and reserved_qty values.
+
+This results in inventory totals being incorrect and not matching the sum of batch-level records.
+
+Required Fix
+
+Update inventory totals when LM finalizes dispatch
+
+After LM performs Send to Dispatch or Approve Dispatch:
+
+For each affected item_id and inventory_id:
+
+Recalculate from the itembatch table:
+
+total_usable = SUM(usable_qty for all itembatch rows for that item_id + inventory_id)
+total_reserved = SUM(reserved_qty for all itembatch rows for that item_id + inventory_id)
+
+
+Write these totals back into the inventory record so that:
+
+inventory.usable_qty   = total_usable
+inventory.reserved_qty = total_reserved
+
+
+Update must happen only after successful batch update
+
+The update to the inventory table should occur after:
+
+Batch allocations have been finalized,
+
+No validation errors occurred,
+
+Optimistic locking has passed,
+
+The dispatch transaction is confirmed.
+
+One atomic transaction
+
+Updating itembatch AND updating inventory must occur in the same atomic transaction:
+
+If any part fails → rollback everything.
+
+This ensures inventory integrity.
+
+No changes to the database schema
+
+Do not add or remove columns.
+
+Do not modify constraints or triggers.
+
+Only update logic that recalculates and writes totals to the inventory table.
+
+No breaking of existing functionality
+
+All existing roles, validations, UI, and workflows must continue working exactly as before.
+
+Only enhance the backend logic to keep inventory table synchronized.
+
+Outcome
+
+After implementing this fix:
+
+Every time a dispatch is approved or sent to dispatch:
+
+itembatch rows reflect correct quantities.
+
+inventory table immediately reflects the accurate totals based on its batches.
+
+Inventory and batch-level data will remain fully consistent across the system.
