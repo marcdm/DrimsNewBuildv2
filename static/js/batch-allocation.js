@@ -701,55 +701,26 @@ const BatchAllocation = (function() {
             remainingDisplay.textContent = formatNumber(remaining);
         }
         
-        // Update Status dropdown based on allocation logic
-        const statusDropdown = document.getElementById(`status_${currentItemId}`);
-        if (statusDropdown) {
-            const autoStatus = statusDropdown.getAttribute('data-auto-status');
-            const allowedCodes = statusDropdown.getAttribute('data-allowed-codes');
+        // Use the main page's updateAllocation function which has the complete logic
+        // This handles allocation activity tracking, status dropdown updates, and validation
+        if (typeof window.updateAllocation === 'function') {
+            console.log(`[Batch Drawer] Calling updateAllocation for item ${currentItemId}`);
+            window.updateAllocation(currentItemId, true); // Pass true to indicate batch allocations exist
+        } else {
+            console.warn(`[Batch Drawer] updateAllocation function not found, falling back to manual status update`);
             
-            console.log(`[Status Update] Item ${currentItemId}:`, {
-                totalAllocated,
-                requestedQty,
-                currentStatus: statusDropdown.value,
-                autoStatus,
-                allowedCodes
-            });
-            
-            if (autoStatus && allowedCodes) {
-                const allowedArray = allowedCodes.split(',');
-                let newStatus = autoStatus;
+            // Fallback: Update status dropdown manually if updateAllocation doesn't exist
+            const statusDropdown = document.getElementById(`status_${currentItemId}`);
+            if (statusDropdown) {
+                console.log(`[Status Update] Item ${currentItemId}:`, {
+                    totalAllocated,
+                    requestedQty,
+                    currentStatus: statusDropdown.value
+                });
                 
-                // Auto-status logic based on allocation
-                // Status codes: R=Requested, P=Partly Filled, F=Filled, D=Denied, U=Unavailable, W=Withdrawn, L=Limit Allowed
-                if (totalAllocated === 0) {
-                    // No allocation - set to 'R' (Requested) if allowed, else use auto status
-                    newStatus = allowedArray.includes('R') ? 'R' : autoStatus;
-                    console.log(`  → No allocation, using status: ${newStatus}`);
-                } else if (totalAllocated >= requestedQty) {
-                    // Fully allocated - set to 'F' (Filled) if allowed
-                    newStatus = allowedArray.includes('F') ? 'F' : autoStatus;
-                    console.log(`  → Fully allocated, new status: ${newStatus}`);
-                } else {
-                    // Partially allocated - set to 'P' (Partly Filled) if allowed
-                    newStatus = allowedArray.includes('P') ? 'P' : autoStatus;
-                    console.log(`  → Partially allocated (${totalAllocated}/${requestedQty}), new status: ${newStatus}`);
-                }
-                
-                console.log(`  → Allowed codes:`, allowedArray);
-                console.log(`  → Will update? ${allowedArray.includes(newStatus) && statusDropdown.value !== newStatus}`);
-                
-                // Only update if the new status is in the allowed codes
-                if (allowedArray.includes(newStatus)) {
-                    if (statusDropdown.value !== newStatus) {
-                        console.log(`  ✓ Updating status from ${statusDropdown.value} to ${newStatus}`);
-                        statusDropdown.value = newStatus;
-                        // Trigger change event to update any dependent UI
-                        statusDropdown.dispatchEvent(new Event('change'));
-                    } else {
-                        console.log(`  • Status already set to ${newStatus}, no change needed`);
-                    }
-                } else {
-                    console.log(`  ✗ New status ${newStatus} not in allowed codes, keeping current status`);
+                // CRITICAL: Call the new updateStatusDropdown function from prepare.html if available
+                if (typeof window.updateStatusDropdown === 'function') {
+                    window.updateStatusDropdown(currentItemId, totalAllocated, requestedQty);
                 }
             }
         }
