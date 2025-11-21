@@ -10,11 +10,12 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, desc
 from app.db.models import (
     db, Inventory, Item, Warehouse, 
-    Event, Donor, Agency, User, ReliefRqst, ReliefRequestFulfillmentLock
+    Event, Donor, Agency, User, ReliefRqst, ReliefRequestFulfillmentLock, ReliefPkg
 )
 from app.services import relief_request_service as rr_service
 from app.services.dashboard_service import DashboardService
 from app.core.feature_registry import FeatureRegistry
+from app.core.rbac import has_role
 from datetime import datetime, timedelta
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -57,8 +58,13 @@ def logistics_dashboard():
     # Get filter parameter
     current_filter = request.args.get('filter', 'pending')
     
+    # Determine if user is LM (sees global data) or LO (sees only their work)
+    is_lm = has_role('LOGISTICS_MANAGER')
+    is_lo = has_role('LOGISTICS_OFFICER') and not is_lm
+    
     # Query fulfillment requests
     from sqlalchemy.orm import joinedload
+    from sqlalchemy import or_
     
     base_query = ReliefRqst.query.options(
         joinedload(ReliefRqst.agency),
@@ -66,6 +72,18 @@ def logistics_dashboard():
         joinedload(ReliefRqst.status),
         joinedload(ReliefRqst.fulfillment_lock).joinedload(ReliefRequestFulfillmentLock.fulfiller)
     )
+    
+    # For LOs: Filter to only show requests they're involved with
+    if is_lo:
+        base_query = base_query.outerjoin(ReliefPkg).filter(
+            or_(
+                ReliefRqst.create_by_id == current_user.user_name,
+                ReliefRqst.action_by_id == current_user.user_name,
+                ReliefPkg.create_by_id == current_user.user_name,
+                ReliefPkg.update_by_id == current_user.user_name,
+                ReliefRqst.fulfillment_lock.has(ReliefRequestFulfillmentLock.fulfiller_id == current_user.user_name)
+            )
+        )
     
     # Apply filters
     if current_filter == 'pending':
@@ -95,18 +113,49 @@ def logistics_dashboard():
         ).order_by(desc(ReliefRqst.request_date)).all()
     
     # Calculate counts for filter tabs
-    global_counts = {
-        'pending': ReliefRqst.query.filter(
-            ReliefRqst.status_code == rr_service.STATUS_SUBMITTED,
-            ~ReliefRqst.fulfillment_lock.has()
-        ).count(),
-        'in_progress': ReliefRqst.query.filter(
-            ReliefRqst.fulfillment_lock.has()
-        ).count(),
-        'ready': ReliefRqst.query.filter_by(status_code=rr_service.STATUS_PART_FILLED).count(),
-        'completed': ReliefRqst.query.filter_by(status_code=rr_service.STATUS_FILLED).count(),
-    }
-    global_counts['all'] = sum(global_counts.values())
+    # LMs see global counts (supervisory), LOs see only their own work
+    if is_lo:
+        # Build count queries with LO filtering
+        count_base = ReliefRqst.query.outerjoin(ReliefPkg).filter(
+            or_(
+                ReliefRqst.create_by_id == current_user.user_name,
+                ReliefRqst.action_by_id == current_user.user_name,
+                ReliefPkg.create_by_id == current_user.user_name,
+                ReliefPkg.update_by_id == current_user.user_name,
+                ReliefRqst.fulfillment_lock.has(ReliefRequestFulfillmentLock.fulfiller_id == current_user.user_name)
+            )
+        )
+        
+        counts = {
+            'pending': count_base.filter(
+                ReliefRqst.status_code == rr_service.STATUS_SUBMITTED,
+                ~ReliefRqst.fulfillment_lock.has()
+            ).count(),
+            'in_progress': count_base.filter(
+                ReliefRqst.fulfillment_lock.has()
+            ).count(),
+            'ready': count_base.filter(
+                ReliefRqst.status_code == rr_service.STATUS_PART_FILLED
+            ).count(),
+            'completed': count_base.filter(
+                ReliefRqst.status_code == rr_service.STATUS_FILLED
+            ).count(),
+        }
+    else:
+        # LMs see global counts
+        counts = {
+            'pending': ReliefRqst.query.filter(
+                ReliefRqst.status_code == rr_service.STATUS_SUBMITTED,
+                ~ReliefRqst.fulfillment_lock.has()
+            ).count(),
+            'in_progress': ReliefRqst.query.filter(
+                ReliefRqst.fulfillment_lock.has()
+            ).count(),
+            'ready': ReliefRqst.query.filter_by(status_code=rr_service.STATUS_PART_FILLED).count(),
+            'completed': ReliefRqst.query.filter_by(status_code=rr_service.STATUS_FILLED).count(),
+        }
+    
+    counts['all'] = sum(counts.values())
     
     # Inventory metrics
     low_stock_count = db.session.query(Item).join(Inventory).filter(
@@ -122,13 +171,14 @@ def logistics_dashboard():
         **dashboard_data,
         'requests': requests,
         'current_filter': current_filter,
-        'global_counts': global_counts,
-        'counts': global_counts,  # For compatibility
+        'counts': counts,
         'low_stock_count': low_stock_count,
         'total_inventory_value': total_inventory_value,
         'STATUS_SUBMITTED': rr_service.STATUS_SUBMITTED,
         'STATUS_PART_FILLED': rr_service.STATUS_PART_FILLED,
         'STATUS_FILLED': rr_service.STATUS_FILLED,
+        'is_lo': is_lo,
+        'is_lm': is_lm,
     }
     
     return render_template('dashboard/logistics.html', **context)
