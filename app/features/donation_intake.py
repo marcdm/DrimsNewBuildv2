@@ -263,17 +263,22 @@ def _process_intake_submission(donation, warehouse):
         normalized_batch_date = None
         
         # Paired validation for batch_no and batch_date
-        # For batched items: both fields are required
-        # For non-batched items: both must be provided or both must be empty
-        if item.is_batched_flag:
-            # Batched items require both batch_no and batch_date
-            if not batch_no_raw:
-                errors.append(f'{item.item_name} requires a batch number')
-                continue
-            if not batch_date_str:
-                errors.append(f'{item.item_name} requires a batch date')
-                continue
-            # Validate and parse batch_date for batched items
+        # CRITICAL: Database allows batch_no to be NULL (nullable column)
+        # Valid states: (1) Both empty, (2) Both filled, (3) One filled/one empty = ERROR
+        # Enforce pairing: if one field has a value, the other must also have a value
+        
+        if batch_no_raw and not batch_date_str:
+            # ERROR: Batch No provided but Batch Date missing
+            errors.append(f'{item.item_name}: Please enter a Batch Date when a Batch No is provided')
+            continue
+        elif not batch_no_raw and batch_date_str:
+            # ERROR: Batch Date provided but Batch No missing
+            errors.append(f'{item.item_name}: Please enter a Batch No when a Batch Date is provided')
+            continue
+        
+        # At this point: either both are filled, or both are empty
+        if batch_no_raw and batch_date_str:
+            # Both filled - validate and parse batch date
             try:
                 normalized_batch_date = datetime.strptime(batch_date_str, '%Y-%m-%d').date()
                 if normalized_batch_date > date.today():
@@ -282,33 +287,12 @@ def _process_intake_submission(donation, warehouse):
             except ValueError:
                 errors.append(f'Invalid batch date format for {item.item_name}')
                 continue
-            # Set normalized batch_no after validation passes
+            # Set normalized values after validation passes
             normalized_batch_no = batch_no_raw
         else:
-            # Non-batched items: enforce pairing (both filled or both empty)
-            if batch_no_raw and not batch_date_str:
-                errors.append(f'{item.item_name}: Please enter a Batch Date when a Batch No is provided')
-                continue
-            elif not batch_no_raw and batch_date_str:
-                errors.append(f'{item.item_name}: Please enter a Batch No when a Batch Date is provided')
-                continue
-            
-            # If both are provided, validate and parse batch date
-            if batch_no_raw and batch_date_str:
-                try:
-                    normalized_batch_date = datetime.strptime(batch_date_str, '%Y-%m-%d').date()
-                    if normalized_batch_date > date.today():
-                        errors.append(f'Batch date cannot be in the future for {item.item_name}')
-                        continue
-                except ValueError:
-                    errors.append(f'Invalid batch date format for {item.item_name}')
-                    continue
-                # Set normalized values after validation passes
-                normalized_batch_no = batch_no_raw
-            # If both are empty, use auto-generated NOBATCH placeholder
-            else:  # not batch_no_raw and not batch_date_str
-                normalized_batch_no = f'NOBATCH-{item_id}'
-                normalized_batch_date = None  # Will default to today in BatchCreationService
+            # Both empty - save as NULL (no NOBATCH placeholder)
+            normalized_batch_no = None
+            normalized_batch_date = None
         
         # Use normalized values for batch_no and batch_date going forward
         batch_no = normalized_batch_no
@@ -388,11 +372,11 @@ def _process_intake_submission(donation, warehouse):
             'comments_text': item_comments.upper() if item_comments else None
         })
     
-    # Check for duplicate batch numbers within this submission (only for batched items)
+    # Check for duplicate batch numbers within this submission (only for items with batch tracking)
     seen_batches = set()
     for intake_item in intake_items:
-        # Skip auto-generated NOBATCH placeholders (for non-batched items)
-        if intake_item['batch_no'].startswith('NOBATCH-'):
+        # Skip items without batch numbers (batch_no = None means no batch tracking)
+        if intake_item['batch_no'] is None:
             continue
             
         batch_key = (intake_item['item_id'], intake_item['batch_no'])
@@ -403,9 +387,9 @@ def _process_intake_submission(donation, warehouse):
             )
         seen_batches.add(batch_key)
     
-    # Check if batch numbers already exist in database for batched items only
-    # Filter out auto-generated NOBATCH placeholders to avoid false duplicates
-    batched_items = [item for item in intake_items if not item['batch_no'].startswith('NOBATCH-')]
+    # Check if batch numbers already exist in database for items with batch tracking
+    # Filter out items without batch numbers (batch_no = None)
+    batched_items = [item for item in intake_items if item['batch_no'] is not None]
     
     if batched_items:
         from sqlalchemy import tuple_
@@ -488,25 +472,43 @@ def _process_intake_submission(donation, warehouse):
             db.session.add(intake_item)
             
             # Create or update itembatch record
-            # Use update_or_create for NOBATCH items to avoid duplicate key errors
-            # For regular batches, create new batch (duplicates already validated above)
-            if item_data['batch_no'].startswith('NOBATCH-'):
-                from app.services.batch_creation_service import BatchCreationService
-                item_batch = BatchCreationService.update_or_create_batch(
+            # CRITICAL: Database has UNIQUE constraint on (inventory_id, batch_no, item_id)
+            # When batch_no is NULL, use update_or_create to prevent IntegrityError
+            if item_data['batch_no'] is None:
+                # NULL batch_no: Find existing batch or create new one
+                existing_batch = ItemBatch.query.filter_by(
                     inventory_id=warehouse.warehouse_id,
                     item_id=item_data['item_id'],
-                    batch_no=item_data['batch_no'],
-                    usable_qty=item_data['usable_qty'],
-                    defective_qty=item_data['defective_qty'],
-                    expired_qty=item_data['expired_qty'],
-                    batch_date=item_data['batch_date'],
-                    expiry_date=item_data['expiry_date'],
-                    uom_code=item_data['uom_code'],
-                    avg_unit_value=item_data['avg_unit_value'],
-                    user_name=current_user.user_name
-                )
+                    batch_no=None
+                ).first()
+                
+                if existing_batch:
+                    # Update existing batch by adding quantities
+                    existing_batch.usable_qty += item_data['usable_qty']
+                    existing_batch.defective_qty += item_data['defective_qty']
+                    existing_batch.expired_qty += item_data['expired_qty']
+                    add_audit_fields(existing_batch, current_user, is_new=False)
+                    item_batch = existing_batch
+                else:
+                    # Create new batch with NULL batch_no
+                    item_batch = ItemBatch()
+                    item_batch.inventory_id = warehouse.warehouse_id
+                    item_batch.item_id = item_data['item_id']
+                    item_batch.batch_no = None
+                    item_batch.batch_date = None
+                    item_batch.expiry_date = item_data['expiry_date']
+                    item_batch.uom_code = item_data['uom_code']
+                    item_batch.avg_unit_value = item_data['avg_unit_value']
+                    item_batch.usable_qty = item_data['usable_qty']
+                    item_batch.defective_qty = item_data['defective_qty']
+                    item_batch.expired_qty = item_data['expired_qty']
+                    item_batch.reserved_qty = Decimal('0')
+                    item_batch.status_code = 'A'
+                    item_batch.comments_text = item_data['comments_text']
+                    add_audit_fields(item_batch, current_user, is_new=True)
+                    db.session.add(item_batch)
             else:
-                # Regular batched items - create new batch
+                # Regular batch with batch_no: Always create new batch (duplicates already validated)
                 item_batch = ItemBatch()
                 item_batch.inventory_id = warehouse.warehouse_id
                 item_batch.item_id = item_data['item_id']
@@ -521,9 +523,7 @@ def _process_intake_submission(donation, warehouse):
                 item_batch.reserved_qty = Decimal('0')
                 item_batch.status_code = 'A'
                 item_batch.comments_text = item_data['comments_text']
-                
                 add_audit_fields(item_batch, current_user, is_new=True)
-                
                 db.session.add(item_batch)
             
             # Update or create inventory record with optimistic locking
