@@ -590,7 +590,7 @@ def lo_dashboard():
         # Service constants
         'PKG_STATUS_PENDING': rr_service.PKG_STATUS_PENDING,
         'PKG_STATUS_DISPATCHED': rr_service.PKG_STATUS_DISPATCHED,
-        'PKG_STATUS_CLOSED': rr_service.PKG_STATUS_CLOSED
+        'PKG_STATUS_COMPLETED': rr_service.PKG_STATUS_COMPLETED
     }
     
     return render_template('dashboard/lo.html', **context)
