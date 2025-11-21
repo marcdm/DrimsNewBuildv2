@@ -875,8 +875,8 @@ class DistributionPackage(db.Model):
     dispatched_at = db.Column(db.DateTime)
     delivered_at = db.Column(db.DateTime)
     notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp(), nullable=False)
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), nullable=False)
+    created_at = db.Column(db.DateTime, default=jamaica_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=jamaica_now, nullable=False)
     
     agency = db.relationship('Agency', backref='distribution_packages')
     warehouse = db.relationship('Warehouse', backref='distribution_packages')

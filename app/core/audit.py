@@ -2,7 +2,7 @@
 Audit field helpers for DRIMS
 All aidmgmt-3.sql tables require audit fields on insert/update
 """
-from datetime import datetime
+from app.utils.timezone import now as jamaica_now
 
 def add_audit_fields(obj, user, is_new=True):
     """
@@ -21,7 +21,7 @@ def add_audit_fields(obj, user, is_new=True):
         has __mapper_args__ = {'version_id_col': version_nbr} configured,
         as SQLAlchemy handles version increment automatically.
     """
-    now = datetime.now()
+    now = jamaica_now()
     
     # Require user_name field - no fallback to email
     if not hasattr(user, 'user_name') or not user.user_name or not user.user_name.strip():
@@ -59,7 +59,7 @@ def add_verify_fields(obj, user):
     Raises:
         ValueError: If user does not have a valid user_name
     """
-    now = datetime.now()
+    now = jamaica_now()
     
     # Require user_name field - no fallback to email
     if not hasattr(user, 'user_name') or not user.user_name or not user.user_name.strip():
