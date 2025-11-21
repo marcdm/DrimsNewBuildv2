@@ -66,41 +66,31 @@
            class="filter-tab {% if current_filter == 'all' %}active{% endif %}"
            aria-current="{% if current_filter == 'all' %}page{% endif %}">
             All Requests
-            {% if counts.get('all', 0) > 0 %}
             <span class="filter-tab-count" aria-label="{{ counts.get('all', 0) }} total">{{ counts.get('all', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('requests.list_requests', filter='awaiting') }}" 
            class="filter-tab {% if current_filter == 'awaiting' %}active{% endif %}"
            aria-current="{% if current_filter == 'awaiting' %}page{% endif %}">
             Pending Review
-            {% if counts.get('awaiting', 0) > 0 %}
             <span class="filter-tab-count" aria-label="{{ counts.get('awaiting', 0) }} awaiting">{{ counts.get('awaiting', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('requests.list_requests', filter='submitted') }}" 
            class="filter-tab {% if current_filter == 'submitted' or not current_filter %}active{% endif %}"
            aria-current="{% if current_filter == 'submitted' or not current_filter %}page{% endif %}">
             Approved
-            {% if counts.get('submitted', 0) > 0 %}
             <span class="filter-tab-count" aria-label="{{ counts.get('submitted', 0) }} approved">{{ counts.get('submitted', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('requests.list_requests', filter='draft') }}" 
            class="filter-tab {% if current_filter == 'draft' %}active{% endif %}"
            aria-current="{% if current_filter == 'draft' %}page{% endif %}">
             Drafts
-            {% if counts.get('draft', 0) > 0 %}
             <span class="filter-tab-count" aria-label="{{ counts.get('draft', 0) }} drafts">{{ counts.get('draft', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('requests.list_requests', filter='completed') }}" 
            class="filter-tab {% if current_filter == 'completed' %}active{% endif %}"
            aria-current="{% if current_filter == 'completed' %}page{% endif %}">
             Completed
-            {% if counts.get('completed', 0) > 0 %}
             <span class="filter-tab-count" aria-label="{{ counts.get('completed', 0) }} completed">{{ counts.get('completed', 0) }}</span>
-            {% endif %}
         </a>
     </nav>
 
