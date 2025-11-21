@@ -35,8 +35,10 @@ def index():
         return admin_dashboard()
     elif primary_role in ['ODPEM_DG', 'ODPEM_DDG', 'ODPEM_DIR_PEOD']:
         return director_dashboard()
-    elif primary_role in ['LOGISTICS_MANAGER', 'LOGISTICS_OFFICER']:
+    elif primary_role == 'LOGISTICS_MANAGER':
         return logistics_dashboard()
+    elif primary_role == 'LOGISTICS_OFFICER':
+        return lo_dashboard()
     elif primary_role in ['AGENCY_DISTRIBUTOR', 'AGENCY_SHELTER']:
         return agency_dashboard()
     elif primary_role == 'INVENTORY_CLERK':
