@@ -6,6 +6,11 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/relief-requests-ui.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/batch-drawer.css') }}">
 <style>
+/* Hide Save Draft button from UI while keeping backend functionality intact */
+button[name="action"][value="save_draft"] {
+    display: none !important;
+}
+
 .page-header {
     display: flex;
     align-items: center;
