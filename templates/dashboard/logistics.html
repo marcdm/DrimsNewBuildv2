@@ -61,30 +61,18 @@
         <a href="{{ url_for('dashboard.logistics_dashboard', filter='pending') }}" 
            class="filter-tab {% if current_filter == 'pending' %}active{% endif %}">
             Pending Fulfillment
-            {% if global_counts.get('pending', 0) > 0 %}
-            <span class="filter-tab-count">{{ global_counts.get('pending', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('dashboard.logistics_dashboard', filter='in_progress') }}" 
            class="filter-tab {% if current_filter == 'in_progress' %}active{% endif %}">
             Being Prepared
-            {% if global_counts.get('in_progress', 0) > 0 %}
-            <span class="filter-tab-count">{{ global_counts.get('in_progress', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('dashboard.logistics_dashboard', filter='ready') }}" 
            class="filter-tab {% if current_filter == 'ready' %}active{% endif %}">
             Ready for Dispatch
-            {% if global_counts.get('ready', 0) > 0 %}
-            <span class="filter-tab-count">{{ global_counts.get('ready', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('dashboard.logistics_dashboard', filter='completed') }}" 
            class="filter-tab {% if current_filter == 'completed' %}active{% endif %}">
             Completed
-            {% if global_counts.get('completed', 0) > 0 %}
-            <span class="filter-tab-count">{{ global_counts.get('completed', 0) }}</span>
-            {% endif %}
         </a>
         <a href="{{ url_for('dashboard.logistics_dashboard', filter='all') }}" 
            class="filter-tab {% if current_filter == 'all' %}active{% endif %}">
