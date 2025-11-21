@@ -458,6 +458,19 @@ class FeatureRegistry:
             'is_dashboard': True,
             'priority': 100
         },
+        'lo_dashboard': {
+            'name': 'My Activity Dashboard',
+            'description': 'Personal activity dashboard for Logistics Officers with charts and metrics',
+            'roles': ['LOGISTICS_OFFICER'],
+            'route': 'dashboard.lo_dashboard',
+            'url': '/dashboard/lo',
+            'icon': 'bi-person-badge',
+            'category': 'logistics',
+            'dashboard_widget': 'lo_overview',
+            'navigation_group': 'logistics',
+            'is_dashboard': False,
+            'priority': 45
+        },
     }
     
     @classmethod
