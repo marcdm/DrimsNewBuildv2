@@ -81,7 +81,7 @@ def logistics_dashboard():
                 ReliefRqst.action_by_id == current_user.user_name,
                 ReliefPkg.create_by_id == current_user.user_name,
                 ReliefPkg.update_by_id == current_user.user_name,
-                ReliefRqst.fulfillment_lock.has(ReliefRequestFulfillmentLock.fulfiller_id == current_user.user_name)
+                ReliefRqst.fulfillment_lock.has(ReliefRequestFulfillmentLock.fulfiller_user_id == current_user.user_id)
             )
         )
     
@@ -122,7 +122,7 @@ def logistics_dashboard():
                 ReliefRqst.action_by_id == current_user.user_name,
                 ReliefPkg.create_by_id == current_user.user_name,
                 ReliefPkg.update_by_id == current_user.user_name,
-                ReliefRqst.fulfillment_lock.has(ReliefRequestFulfillmentLock.fulfiller_id == current_user.user_name)
+                ReliefRqst.fulfillment_lock.has(ReliefRequestFulfillmentLock.fulfiller_user_id == current_user.user_id)
             )
         )
         
