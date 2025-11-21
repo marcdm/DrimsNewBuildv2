@@ -1019,26 +1019,34 @@ def pending_fulfillment():
         
         return False
     
+    # Apply role-based filtering first
+    if is_logistics_manager():
+        # LM sees all requests
+        role_filtered_requests = all_requests
+    else:
+        # LO sees only requests they're involved with
+        role_filtered_requests = [r for r in all_requests if is_user_involved(r)]
+    
     if filter_type == 'awaiting':
         # Show all SUBMITTED requests (not yet partially filled)
         # Exclude requests with dispatched packages (they belong in Approved for Dispatch tab)
-        filtered_requests = [r for r in all_requests 
+        filtered_requests = [r for r in role_filtered_requests 
                            if r.status_code == rr_service.STATUS_SUBMITTED 
                            and not has_pending_approval(r)
                            and not has_dispatched_package(r)]
     elif filter_type == 'in_progress':
         # Being Prepared: Show PART_FILLED requests (in active preparation)
         # Exclude requests with dispatched packages (they belong in Approved for Dispatch tab)
-        filtered_requests = [r for r in all_requests 
+        filtered_requests = [r for r in role_filtered_requests 
                            if r.status_code == rr_service.STATUS_PART_FILLED
                            and not has_pending_approval(r)
                            and not has_dispatched_package(r)]
     elif filter_type == 'pending_approval':
-        # Show only requests with packages awaiting LM approval AND user is involved
-        filtered_requests = [r for r in all_requests if has_pending_approval(r) and is_user_involved(r)]
+        # Show only requests with packages awaiting LM approval
+        filtered_requests = [r for r in role_filtered_requests if has_pending_approval(r)]
     else:
         # "All" tab: Show only requests where current user is involved
-        filtered_requests = [r for r in all_requests if is_user_involved(r)]
+        filtered_requests = role_filtered_requests
     
     # Count approved packages for the tabs
     # Get all approved packages and split by allocation status
@@ -1064,11 +1072,24 @@ def pending_fulfillment():
     user_approved_with_items = len([pkg for pkg in user_approved_pkgs if len(pkg.items) > 0])
     user_approved_no_allocation = len([pkg for pkg in user_approved_pkgs if len(pkg.items) == 0])
     
-    # For badge counts: Use user-involved requests (all requests the user should see)
-    # This ensures badge counts are correct regardless of which tab is active
-    user_requests = [r for r in all_requests if is_user_involved(r)]
+    # Calculate separate counts for LO and LM using EXACT same base as their respective displays
+    # LO counts: use role_filtered_requests (filtered by is_user_involved)
+    lo_counts = {
+        'submitted': len([r for r in role_filtered_requests 
+                         if r.status_code == rr_service.STATUS_SUBMITTED 
+                         and not has_pending_approval(r)
+                         and not has_dispatched_package(r)]),
+        'in_progress': len([r for r in role_filtered_requests 
+                           if r.status_code == rr_service.STATUS_PART_FILLED
+                           and not has_pending_approval(r)
+                           and not has_dispatched_package(r)]),
+        'pending_approval': len([r for r in role_filtered_requests if has_pending_approval(r)]),
+        'approved': user_approved_with_items,
+        'approved_no_allocation': user_approved_no_allocation
+    }
     
-    global_counts = {
+    # LM counts: use all_requests (no user filtering)
+    lm_counts = {
         'submitted': len([r for r in all_requests 
                          if r.status_code == rr_service.STATUS_SUBMITTED 
                          and not has_pending_approval(r)
@@ -1082,26 +1103,19 @@ def pending_fulfillment():
         'approved_no_allocation': approved_no_allocation
     }
     
-    # Calculate user-scoped counts from ALL user requests (not just filtered by current tab)
-    # This ensures badge counts show correct numbers on all tabs
-    filtered_counts = {
-        'submitted': len([r for r in user_requests 
-                         if r.status_code == rr_service.STATUS_SUBMITTED 
-                         and not has_pending_approval(r)
-                         and not has_dispatched_package(r)]),
-        'in_progress': len([r for r in user_requests 
-                           if r.status_code == rr_service.STATUS_PART_FILLED
-                           and not has_pending_approval(r)
-                           and not has_dispatched_package(r)]),
-        'pending_approval': len([r for r in user_requests if has_pending_approval(r)]),
-        'approved': user_approved_with_items,
-        'approved_no_allocation': user_approved_no_allocation
-    }
+    # Use the appropriate counts based on the current user's role
+    # This ensures badge counts match EXACTLY what's displayed for that role
+    if is_logistics_manager():
+        counts = lm_counts
+        global_counts = lm_counts
+    else:
+        counts = lo_counts
+        global_counts = lo_counts
     
     return render_template('packaging/pending_fulfillment.html',
                          requests=filtered_requests,
                          packages=[],
-                         counts=filtered_counts,
+                         counts=counts,
                          global_counts=global_counts,
                          current_filter=filter_type,
                          STATUS_SUBMITTED=rr_service.STATUS_SUBMITTED,
